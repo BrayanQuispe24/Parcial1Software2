@@ -1,0 +1,18 @@
+@import "tailwindcss";
+
+@theme {
+  --color-app-bg: #F8FAFC;
+  --color-sidebar: #0F172A;
+  --color-sidebar-hover: #1E293B;
+  --color-sidebar-active: #1E3A8A;
+  --color-primary: #1E40AF;
+  --color-primary-hover: #1D4ED8;
+  --color-accent: #38BDF8;
+  --color-console: #090D16;
+}
+
+@layer base {
+  body {
+    @apply bg-slate-50 text-slate-900 font-sans antialiased text-xs;
+  }
+}

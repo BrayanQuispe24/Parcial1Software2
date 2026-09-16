@@ -1,0 +1,30 @@
+# Python & Django
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+*.so
+*.db
+db.sqlite3
+db.sqlite3-journal
+
+# Environments
+venv/
+.venv/
+env/
+ENV/
+
+# Environment Variables
+.env
+.env.local
+.env.*.local
+
+# IDE & Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
