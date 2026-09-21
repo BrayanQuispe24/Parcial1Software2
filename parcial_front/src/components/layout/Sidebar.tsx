@@ -234,6 +234,73 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </>
         )}
 
+        {/* AUDITOR NAVIGATION */}
+        {role === 'AUDITOR' && (
+          <>
+            <div>
+              <div className={`px-4 py-1.5 text-[10px] font-bold tracking-wider text-purple-400 uppercase font-mono ${collapsed ? 'md:hidden' : 'block'}`}>
+                PANEL DE AUDITORÍA
+              </div>
+              <NavLink
+                to="/app/dashboard"
+                onClick={handleNavClick}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-4 py-2 text-xs font-medium transition ${
+                    isActive
+                      ? 'bg-purple-950/60 text-white border-l-4 border-purple-400'
+                      : 'text-slate-400 hover:bg-slate-800 hover:text-slate-100'
+                  }`
+                }
+              >
+                <span className="text-sm">📊</span>
+                <span className={collapsed ? 'md:hidden' : 'inline'}>Dashboard Evaluativo</span>
+              </NavLink>
+            </div>
+
+            <div>
+              <div className={`px-4 py-1.5 text-[10px] font-bold tracking-wider text-slate-500 uppercase ${collapsed ? 'md:hidden' : 'block'}`}>
+                EVALUACIÓN Y REVISION
+              </div>
+              <NavLink
+                to="/app/targets"
+                onClick={handleNavClick}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-4 py-2 text-xs font-medium transition ${
+                    isActive ? 'bg-purple-950/60 text-white border-l-4 border-purple-400' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-100'
+                  }`
+                }
+              >
+                <span className="text-sm">🎯</span>
+                <span className={collapsed ? 'md:hidden' : 'inline'}>Targets & Informes</span>
+              </NavLink>
+              <NavLink
+                to="/app/assessments"
+                onClick={handleNavClick}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-4 py-2 text-xs font-medium transition ${
+                    isActive ? 'bg-purple-950/60 text-white border-l-4 border-purple-400' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-100'
+                  }`
+                }
+              >
+                <span className="text-sm">⚡</span>
+                <span className={collapsed ? 'md:hidden' : 'inline'}>Pruebas Offensivas</span>
+              </NavLink>
+              <NavLink
+                to="/app/findings"
+                onClick={handleNavClick}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-4 py-2 text-xs font-medium transition ${
+                    isActive ? 'bg-purple-950/60 text-white border-l-4 border-purple-400' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-100'
+                  }`
+                }
+              >
+                <span className="text-sm">⚠️</span>
+                <span className={collapsed ? 'md:hidden' : 'inline'}>Matriz de Hallazgos</span>
+              </NavLink>
+            </div>
+          </>
+        )}
+
         {/* SHARED PROFILE FOR ALL ROLES */}
         <div>
           <div className={`px-4 py-1.5 text-[10px] font-bold tracking-wider text-slate-500 uppercase ${collapsed ? 'md:hidden' : 'block'}`}>

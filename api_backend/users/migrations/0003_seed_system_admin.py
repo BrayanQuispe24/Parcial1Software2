@@ -1,4 +1,5 @@
 from django.db import migrations
+from django.contrib.auth.hashers import make_password
 
 def create_or_update_system_admin(apps, schema_editor):
     User = apps.get_model('users', 'User')
@@ -21,8 +22,9 @@ def create_or_update_system_admin(apps, schema_editor):
     user.accepted_terms = True
     user.is_staff = True
     user.is_superuser = True
-    user.set_password("123456789")
+    user.password = make_password("123456789")
     user.save()
+
 
 def reverse_system_admin(apps, schema_editor):
     pass

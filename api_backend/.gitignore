@@ -11,13 +11,18 @@ db.sqlite3-journal
 # Environments
 venv/
 .venv/
-env/
+.env/
 ENV/
 
 # Environment Variables
 .env
 .env.local
 .env.*.local
+.env.*
+env
+env.*
+*.env
+
 
 # IDE & Editors
 .vscode/

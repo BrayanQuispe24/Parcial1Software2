@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { softwareService, type Software } from '../services/softwareService';
 import { monetizacionService, type BoletaSuscripcion } from '../services/monetizacionService';
+import { aiService } from '../services/aiService';
+import { InformeSeguridadModal } from '../components/InformeSeguridadModal';
+
 
 export const TargetsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -26,6 +29,69 @@ export const TargetsPage: React.FC = () => {
   // Modal de Advertencia de Monetización por Límite Alcanzado
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState<boolean>(false);
   const [upgradeErrorMessage, setUpgradeErrorMessage] = useState<string>('');
+
+  // Estados e Integración con Microservicio de IA
+  const [selectedSoftwareForInforme, setSelectedSoftwareForInforme] = useState<{ id: number; name: string } | null>(null);
+  const [isInformeModalOpen, setIsInformeModalOpen] = useState<boolean>(false);
+  const [scanningSoftwareId, setScanningSoftwareId] = useState<number | null>(null);
+  const [scanMessage, setScanMessage] = useState<string | null>(null);
+
+  // Modal para ingresar credenciales del target a evaluar
+  const [isScanAuthModalOpen, setIsScanAuthModalOpen] = useState<boolean>(false);
+  const [targetAuthSoftware, setTargetAuthSoftware] = useState<{ id: number; name: string; endpoint: string } | null>(null);
+  const [targetAuthCreds, setTargetAuthCreds] = useState({
+    usuario: '',
+    contrasena: '',
+    auth_token: '',
+  });
+
+  const handleOpenInforme = (softwareId: number, softwareName: string) => {
+    setSelectedSoftwareForInforme({ id: softwareId, name: softwareName });
+    setIsInformeModalOpen(true);
+  };
+
+  const handleOpenScanAuthModal = (softwareId: number, softwareName: string, endpoint: string) => {
+    setTargetAuthSoftware({ id: softwareId, name: softwareName, endpoint });
+    setTargetAuthCreds({ usuario: '', contrasena: '', auth_token: '' });
+    setIsScanAuthModalOpen(true);
+  };
+
+  const handleLanzarEscaneoIA = async (
+    softwareId: number,
+    targetUrl: string,
+    credentials?: { usuario?: string; contrasena?: string; auth_token?: string }
+  ) => {
+    try {
+      setScanningSoftwareId(softwareId);
+      setScanMessage(null);
+      await aiService.iniciarEscaneo(softwareId, targetUrl, credentials);
+      setScanMessage(`🚀 Escaneo de IA iniciado para el software #${softwareId}. El análisis de Playwright y Ollama se ejecutará en segundo plano.`);
+      setTimeout(() => setScanMessage(null), 8000);
+    } catch (err: any) {
+      console.error('Error al iniciar escaneo de IA:', err);
+      const data = err.response?.data;
+      let msg = data?.detalle || data?.mensaje || data?.error;
+
+      if (!msg && data && typeof data === 'object') {
+        const firstKey = Object.keys(data)[0];
+        if (firstKey && Array.isArray(data[firstKey])) {
+          msg = data[firstKey][0];
+        } else if (firstKey && typeof data[firstKey] === 'string') {
+          msg = data[firstKey];
+        }
+      }
+
+      if (!msg) {
+        msg = 'No se pudo iniciar el escaneo de IA. Verifique que el microservicio de IA (backend_genvulnai) esté ejecutándose en el puerto 8001.';
+      }
+      alert(`⚠️ ${msg}`);
+    } finally {
+      setScanningSoftwareId(null);
+      setIsScanAuthModalOpen(false);
+    }
+  };
+
+
 
   const [formData, setFormData] = useState({
     name: '',
@@ -65,14 +131,30 @@ export const TargetsPage: React.FC = () => {
     fetchSoftwaresAndSubscription();
   }, [user]);
 
-  const activeSoftwaresCount = softwares.filter((s) => s.status === 'Activo').length;
+  const totalSoftwaresCount = softwares.length;
   const isPentester = user?.role === 'PENTESTER';
+  const isAuditor = user?.role === 'AUDITOR';
+
+  const isPaidBoleta = (boleta: BoletaSuscripcion | null): boolean => {
+    if (!boleta) return false;
+    const monto = Number(boleta.plan_monto || 0);
+    const planName = (boleta.plan_nombre || '').toLowerCase();
+    const isFreeKeyword = ['free', 'gratuito', 'trial', 'starter'].some((k) => planName.includes(k));
+    return monto > 0 && !isFreeKeyword;
+  };
+
+  const hasPaidSubscription = isPaidBoleta(activeBoleta);
 
   const handleOpenCreateModal = () => {
-    // Si es Pentester, NO tiene suscripción activa y ya tiene 2 o más softwares activos, bloquear creación
-    if (isPentester && !activeBoleta && activeSoftwaresCount >= 2) {
+    if (isAuditor) {
+      alert('⚠️ El rol Auditor tiene acceso de Solo Lectura y no puede registrar nuevos softwares.');
+      return;
+    }
+
+    // Si es Pentester, no tiene una suscripción de pago activa y ya tiene 2 o más softwares registrados, bloquear creación
+    if (isPentester && !hasPaidSubscription && totalSoftwaresCount >= 2) {
       setUpgradeErrorMessage(
-        'Has alcanzado el límite de 2 softwares activos permitidos en el plan gratuito. Por favor, actualiza tu plan de suscripción en el módulo de Monetización para registrar más softwares.'
+        'Has alcanzado el límite de 2 softwares/objetivos permitidos en el Plan Gratuito/Trial. Por favor, actualiza tu plan a una suscripción de pago (Professional o Enterprise) en el módulo de Monetización para registrar más softwares.'
       );
       setIsUpgradeModalOpen(true);
       return;
@@ -107,7 +189,7 @@ export const TargetsPage: React.FC = () => {
     if (window.confirm(`¿Estás seguro de que deseas eliminar el software objetivo "${name}" (#${id})?`)) {
       try {
         await softwareService.deleteSoftware(id);
-        fetchSoftwares();
+        fetchSoftwaresAndSubscription();
       } catch (err: any) {
         console.error('Error al eliminar software:', err);
         alert('Ocurrió un error al intentar eliminar el software.');
@@ -125,7 +207,7 @@ export const TargetsPage: React.FC = () => {
         await softwareService.createSoftware(formData);
       }
       setIsModalOpen(false);
-      fetchSoftwares();
+      fetchSoftwaresAndSubscription();
     } catch (err: any) {
       console.error('Error al guardar software:', err);
       const detailMessage =
@@ -241,12 +323,18 @@ export const TargetsPage: React.FC = () => {
             Módulo de Pruebas: Configura y mapea los endpoints, WebSockets, canales de audio (STT) y metadatos LLM autorizados para evaluación.
           </p>
         </div>
-        <button
-          className="bg-blue-800 hover:bg-blue-700 text-white font-bold text-xs px-4 py-2 rounded-lg transition shadow-sm shrink-0 flex items-center gap-1.5"
-          onClick={handleOpenCreateModal}
-        >
-          ➕ Registrar Software Autorizado
-        </button>
+        {!isAuditor ? (
+          <button
+            className="bg-blue-800 hover:bg-blue-700 text-white font-bold text-xs px-4 py-2 rounded-lg transition shadow-sm shrink-0 flex items-center gap-1.5"
+            onClick={handleOpenCreateModal}
+          >
+            ➕ Registrar Software Autorizado
+          </button>
+        ) : (
+          <span className="bg-purple-100 text-purple-800 border border-purple-200 font-bold text-xs px-3.5 py-1.5 rounded-lg shrink-0 flex items-center gap-1.5">
+            👁️ Modo Auditoría (Solo Lectura)
+          </span>
+        )}
       </div>
 
       {/* Banner de Suscripción Activa */}
@@ -271,14 +359,14 @@ export const TargetsPage: React.FC = () => {
       )}
 
       {/* Banner de Aviso de Límite Alcanzado en Plan Gratuito */}
-      {isPentester && !activeBoleta && activeSoftwaresCount >= 2 && (
+      {isPentester && !hasPaidSubscription && totalSoftwaresCount >= 2 && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-amber-900 text-xs shadow-xs">
           <div className="flex items-center gap-2.5">
             <span className="text-xl">⚠️</span>
             <div>
-              <span className="font-bold">Límite del Plan Gratuito Alcanzado ({activeSoftwaresCount}/2 Activos)</span>
+              <span className="font-bold">Límite del Plan Gratuito/Trial Alcanzado ({totalSoftwaresCount}/2 Registrados)</span>
               <p className="text-[11px] text-amber-800/90 mt-0.5">
-                Has alcanzado el límite de 2 softwares activos. Actualiza tu plan de suscripción para registrar nuevos objetivos.
+                En el Plan Gratuito/Trial solo puedes registrar un máximo de 2 softwares. Actualiza tu plan a una suscripción de pago para registrar nuevos objetivos.
               </p>
             </div>
           </div>
@@ -359,12 +447,25 @@ export const TargetsPage: React.FC = () => {
           </div>
         </div>
 
+        {/* Mensaje de Confirmación de Escaneo IA */}
+        {scanMessage && (
+          <div className="m-4 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs p-3 rounded-xl flex items-center justify-between shadow-xs">
+            <span className="font-medium">{scanMessage}</span>
+            <button
+              onClick={() => setScanMessage(null)}
+              className="text-emerald-600 hover:text-emerald-900 font-bold text-sm px-2"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
         {/* Mensaje de Error */}
         {error && (
           <div className="m-4 bg-red-50 border border-red-200 text-red-700 text-xs p-3 rounded-lg flex justify-between items-center">
             <span>{error}</span>
             <button
-              onClick={fetchSoftwares}
+              onClick={fetchSoftwaresAndSubscription}
               className="underline font-semibold hover:text-red-900 ml-2"
             >
               Reintentar
@@ -380,40 +481,47 @@ export const TargetsPage: React.FC = () => {
           </div>
         ) : filteredSoftwares.length === 0 ? (
           <div className="p-12 text-center text-slate-400 text-xs space-y-2">
-            <p>No se encontraron softwares registrados que coincidan con el criterio.</p>
-            <button
-              className="text-blue-800 font-bold hover:underline"
-              onClick={handleOpenCreateModal}
-            >
-              Registrar nuevo software
-            </button>
+            <div className="text-3xl">🎯</div>
+            <div className="font-bold text-slate-600">No hay softwares autorizados encontrados</div>
+            <p className="text-slate-400 max-w-sm mx-auto text-[11px]">
+              No se encontraron registros que coincidan con los filtros aplicados.
+            </p>
           </div>
         ) : viewMode === 'cards' ? (
           /* --- VISTA DE TARJETAS --- */
-          <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 bg-slate-50/50">
+          <div className="p-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {filteredSoftwares.map((tgt) => (
               <div
                 key={tgt.id}
-                className="bg-white border border-slate-200 hover:border-blue-400 rounded-xl p-4 shadow-xs transition space-y-4 flex flex-col justify-between"
+                className="bg-slate-50/60 border border-slate-200 hover:border-blue-300 rounded-xl p-4 transition flex flex-col justify-between space-y-3 shadow-2xs hover:shadow-xs"
               >
-                <div className="space-y-2.5">
-                  <div className="flex justify-between items-start gap-2">
-                    <span className="font-mono text-[11px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
-                      SFT-{String(tgt.id).padStart(3, '0')}
-                    </span>
-                    {getStatusBadge(tgt.status)}
+                {/* Header de la Tarjeta */}
+                <div className="space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-xs font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">
+                          SFT-{String(tgt.id).padStart(3, '0')}
+                        </span>
+                        {getStatusBadge(tgt.status)}
+                      </div>
+                      <h3 className="font-bold text-slate-900 text-sm tracking-tight pt-1">
+                        {tgt.name}
+                      </h3>
+                    </div>
                   </div>
 
-                  <h3 className="font-bold text-slate-900 text-sm leading-snug">{tgt.name}</h3>
-
-                  <div className="space-y-1.5 text-xs text-slate-600 bg-slate-50/80 p-3 rounded-lg border border-slate-200/80">
+                  {/* Metadata Grid */}
+                  <div className="space-y-1.5 text-xs text-slate-600 border-t border-slate-200/80 pt-2">
                     <div className="flex justify-between items-center">
                       <span className="text-slate-400 text-[11px]">Protocolo:</span>
                       {getProtocolBadge(tgt.protocol)}
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-slate-400 text-[11px]">Modelo / Framework:</span>
-                      <span className="font-medium text-slate-800">{tgt.llm_provider}</span>
+                      <span className="text-slate-400 text-[11px]">Proveedor / Modelo:</span>
+                      <span className="font-semibold text-slate-800 text-[11px]">
+                        {tgt.llm_provider}
+                      </span>
                     </div>
                     {tgt.user_username && (
                       <div className="flex justify-between items-center">
@@ -432,30 +540,67 @@ export const TargetsPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
-                  <span className="text-[11px] text-slate-400">
-                    {new Date(tgt.created_at).toLocaleDateString()}
-                  </span>
-                  <div className="flex items-center gap-1.5">
+                <div className="space-y-2 pt-2 border-t border-slate-100">
+                  {/* Botones de Acción de IA */}
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {!isAuditor ? (
+                      <button
+                        className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded px-2.5 py-1.5 text-[11px] font-bold transition flex items-center justify-center gap-1 disabled:opacity-50"
+                        onClick={() => handleOpenScanAuthModal(tgt.id, tgt.name, tgt.endpoint)}
+                        disabled={scanningSoftwareId === tgt.id}
+                        title="Lanzar escaneo de Playwright y Ollama"
+                      >
+                        {scanningSoftwareId === tgt.id ? (
+                          <>
+                            <span className="animate-spin text-xs">⏳</span> Escaneando...
+                          </>
+                        ) : (
+                          <>🚀 Escanear IA</>
+                        )}
+                      </button>
+                    ) : (
+                      <span className="bg-slate-100 text-slate-500 border border-slate-200 rounded px-2.5 py-1.5 text-[11px] font-bold transition flex items-center justify-center gap-1 opacity-70">
+                        👁️ Auditor
+                      </span>
+                    )}
+
                     <button
-                      className="bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded px-2.5 py-1 text-[11px] font-semibold transition"
-                      onClick={() => handleOpenEditModal(tgt)}
-                      title="Editar Software"
+                      className="bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded px-2.5 py-1.5 text-[11px] font-bold transition flex items-center justify-center gap-1"
+                      onClick={() => handleOpenInforme(tgt.id, tgt.name)}
+                      title="Ver Informe Técnico de Seguridad e IA"
                     >
-                      ✏️ Editar
+                      🛡️ Informe IA
                     </button>
-                    <button
-                      className="bg-white hover:bg-red-50 text-red-600 border border-red-200 rounded px-2.5 py-1 text-[11px] font-semibold transition"
-                      onClick={() => handleDeleteSoftware(tgt.id, tgt.name)}
-                      title="Eliminar Software"
-                    >
-                      🗑️
-                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs pt-1">
+                    <span className="text-[11px] text-slate-400">
+                      {new Date(tgt.created_at).toLocaleDateString()}
+                    </span>
+                    {!isAuditor && (
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          className="bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded px-2 py-0.5 text-[11px] font-semibold transition"
+                          onClick={() => handleOpenEditModal(tgt)}
+                          title="Editar Software"
+                        >
+                          ✏️
+                        </button>
+                        <button
+                          className="bg-white hover:bg-red-50 text-red-600 border border-red-200 rounded px-2 py-0.5 text-[11px] font-semibold transition"
+                          onClick={() => handleDeleteSoftware(tgt.id, tgt.name)}
+                          title="Eliminar Software"
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
             ))}
           </div>
+
         ) : (
           /* --- VISTA DE TABLA --- */
           <div className="overflow-x-auto w-full">
@@ -490,18 +635,34 @@ export const TargetsPage: React.FC = () => {
                     </td>
                     <td className="px-4 py-3 text-right space-x-1.5">
                       <button
-                        className="bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded px-2.5 py-1 text-[11px] font-semibold transition"
-                        onClick={() => handleOpenEditModal(tgt)}
+                        className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded px-2 py-1 text-[11px] font-bold transition inline-flex items-center gap-1 disabled:opacity-50"
+                        onClick={() => handleOpenScanAuthModal(tgt.id, tgt.name, tgt.endpoint)}
+                        disabled={scanningSoftwareId === tgt.id}
+                        title="Lanzar escaneo de Playwright y Ollama"
                       >
-                        ✏️ Editar
+                        {scanningSoftwareId === tgt.id ? '⏳ Escaneando...' : '🚀 Escanear IA'}
                       </button>
                       <button
-                        className="bg-white hover:bg-red-50 text-red-600 border border-red-200 rounded px-2.5 py-1 text-[11px] font-semibold transition"
+                        className="bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded px-2 py-1 text-[11px] font-bold transition inline-flex items-center gap-1"
+                        onClick={() => handleOpenInforme(tgt.id, tgt.name)}
+                        title="Ver Informe Técnico de Seguridad e IA"
+                      >
+                        🛡️ Informe IA
+                      </button>
+                      <button
+                        className="bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded px-2 py-1 text-[11px] font-semibold transition"
+                        onClick={() => handleOpenEditModal(tgt)}
+                      >
+                        ✏️
+                      </button>
+                      <button
+                        className="bg-white hover:bg-red-50 text-red-600 border border-red-200 rounded px-2 py-1 text-[11px] font-semibold transition"
                         onClick={() => handleDeleteSoftware(tgt.id, tgt.name)}
                       >
-                        🗑️ Eliminar
+                        🗑️
                       </button>
                     </td>
+
                   </tr>
                 ))}
               </tbody>
@@ -674,6 +835,139 @@ export const TargetsPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* --- MODAL DE CREDENCIALES DEL TARGET PARA ESCANEO IA --- */}
+      {isScanAuthModalOpen && targetAuthSoftware && (
+        <div
+          className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-50 flex items-center justify-center p-4"
+          onClick={() => setIsScanAuthModalOpen(false)}
+        >
+          <div
+            className="w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col p-6 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">🔑</span>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">
+                    Credenciales del Sistema Objetivo (Target)
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    Software: <strong className="text-blue-700">{targetAuthSoftware.name}</strong> ({targetAuthSoftware.endpoint})
+                  </p>
+                </div>
+              </div>
+              <button
+                className="text-slate-400 hover:text-slate-700 text-base font-bold"
+                onClick={() => setIsScanAuthModalOpen(false)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="bg-blue-50 border border-blue-200 text-blue-900 text-[11px] p-3 rounded-xl space-y-1">
+              <div className="font-bold">🔒 Información de Autenticación Evaluada:</div>
+              <div>
+                Si el chatbot o aplicación web requiere inicio de sesión previo para acceder, ingresa las credenciales del <strong>sistema objetivo que estamos probando</strong>. Playwright las usará para autenticarse automáticamente. De lo contrario, déjalas en blanco para escaneo anónimo.
+              </div>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleLanzarEscaneoIA(
+                  targetAuthSoftware.id,
+                  targetAuthSoftware.endpoint,
+                  targetAuthCreds
+                );
+              }}
+              className="space-y-3 text-xs"
+            >
+              <div className="space-y-1">
+                <label className="font-semibold text-slate-700">
+                  Correo Electrónico / Usuario del Target
+                </label>
+                <input
+                  type="text"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg outline-none focus:border-blue-600 focus:bg-white transition font-mono"
+                  placeholder="ej: bq6144895@gmail.com"
+                  value={targetAuthCreds.usuario}
+                  onChange={(e) =>
+                    setTargetAuthCreds({ ...targetAuthCreds, usuario: e.target.value })
+                  }
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-semibold text-slate-700">Contraseña del Target</label>
+                <input
+                  type="password"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg outline-none focus:border-blue-600 focus:bg-white transition font-mono"
+                  placeholder="••••••••"
+                  value={targetAuthCreds.contrasena}
+                  onChange={(e) =>
+                    setTargetAuthCreds({ ...targetAuthCreds, contrasena: e.target.value })
+                  }
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-semibold text-slate-700">
+                  Bearer Token / Header Authorization (Opcional para APIs directas)
+                </label>
+                <input
+                  type="text"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg outline-none focus:border-blue-600 focus:bg-white transition font-mono text-[11px]"
+                  placeholder="Bearer eyJhbGciOiJIUzI1Ni..."
+                  value={targetAuthCreds.auth_token}
+                  onChange={(e) =>
+                    setTargetAuthCreds({ ...targetAuthCreds, auth_token: e.target.value })
+                  }
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">
+                <button
+                  type="button"
+                  className="bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 font-semibold px-4 py-2 rounded-lg text-xs transition"
+                  onClick={() => setIsScanAuthModalOpen(false)}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={scanningSoftwareId === targetAuthSoftware.id}
+                  className="bg-blue-800 hover:bg-blue-700 text-white font-bold px-4 py-2 rounded-lg text-xs transition shadow-sm disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {scanningSoftwareId === targetAuthSoftware.id ? (
+                    <>
+                      <span className="animate-spin text-xs">⏳</span> Escaneando...
+                    </>
+                  ) : (
+                    <>🚀 Iniciar Escaneo Autenticado</>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- MODAL DE INFORME TÉCNICO DE SEGURIDAD E IA --- */}
+      {selectedSoftwareForInforme && (
+        <InformeSeguridadModal
+          softwareId={selectedSoftwareForInforme.id}
+          softwareName={selectedSoftwareForInforme.name}
+          isOpen={isInformeModalOpen}
+          onClose={() => setIsInformeModalOpen(false)}
+          onLanzarEscaneo={() =>
+            handleLanzarEscaneoIA(selectedSoftwareForInforme.id, '')
+          }
+        />
+      )}
     </div>
   );
 };
+
+

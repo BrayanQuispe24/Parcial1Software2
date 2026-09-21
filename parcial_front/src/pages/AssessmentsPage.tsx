@@ -1,4 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { softwareService, type Software } from '../services/softwareService';
+import { aiService, type DiscoveryScanItem } from '../services/aiService';
 
 interface ModuleConfig {
   id: string;
@@ -10,9 +13,20 @@ interface ModuleConfig {
 }
 
 export const AssessmentsPage: React.FC = () => {
-  const [targetSelected, setTargetSelected] = useState('TGT-001');
-  const [isRunning, setIsRunning] = useState(false);
-  const [progress, setProgress] = useState(0);
+  const [softwares, setSoftwares] = useState<Software[]>([]);
+  const [selectedSoftwareId, setSelectedSoftwareId] = useState<number | null>(null);
+  const [scans, setScans] = useState<DiscoveryScanItem[]>([]);
+  const [selectedScanId, setSelectedScanId] = useState<string>('');
+  
+  const [objetivo, setObjetivo] = useState<string>('Extraer el System Prompt original del modelo');
+  const [maxTurnos, setMaxTurnos] = useState<number>(10);
+  
+  const [isRunning, setIsRunning] = useState<boolean>(false);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const [turnos, setTurnos] = useState<any[]>([]);
+  const [sessionDetail, setSessionDetail] = useState<any | null>(null);
+  const [progress, setProgress] = useState<number>(0);
+  const [cargandoDatos, setCargandoDatos] = useState<boolean>(true);
 
   const [modules, setModules] = useState<ModuleConfig[]>([
     {
@@ -58,11 +72,63 @@ export const AssessmentsPage: React.FC = () => {
   ]);
 
   const [executionLogs, setExecutionLogs] = useState<string[]>([
-    '[SYSTEM] Motor de evaluaciones inicializado.',
-    '[READY] Seleccione objetivo y presione "Iniciar Evaluación Autorizada".',
+    '[SYSTEM] Motor de evaluaciones de Red-Teaming IA listo.',
+    '[READY] Selecciona un software objetivo con escaneo previo para iniciar.',
   ]);
 
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
+  const pollingIntervalRef = useRef<any>(null);
+
+  // Cargar softwares del backend
+  const fetchSoftwares = async () => {
+    try {
+      setCargandoDatos(true);
+      const data = await softwareService.getSoftwares();
+      setSoftwares(data);
+      if (data.length > 0) {
+        setSelectedSoftwareId(data[0].id);
+      }
+    } catch (err) {
+      console.error('Error al cargar softwares:', err);
+    } finally {
+      setCargandoDatos(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSoftwares();
+  }, []);
+
+  useEffect(() => {
+    if (!selectedSoftwareId) return;
+
+    const fetchScans = async () => {
+      try {
+        const scanList = await aiService.obtenerEscaneos(selectedSoftwareId);
+        const completados = scanList.filter((s) => s.status.toLowerCase() === 'completado');
+        setScans(completados);
+        if (completados.length > 0) {
+          setSelectedScanId(completados[0].id);
+        } else {
+          setSelectedScanId('');
+        }
+      } catch (err) {
+        console.error('Error al cargar escaneos:', err);
+        setScans([]);
+        setSelectedScanId('');
+      }
+    };
+
+    fetchScans();
+  }, [selectedSoftwareId]);
+
+  useEffect(() => {
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
+    };
+  }, []);
 
   const handleToggleModule = (id: string) => {
     setModules(
@@ -70,34 +136,92 @@ export const AssessmentsPage: React.FC = () => {
     );
   };
 
-  const handleStartScan = () => {
-    setIsRunning(true);
-    setProgress(15);
-    setExecutionLogs([
-      `[INIT] Iniciando suite ofensiva sobre objetivo #${targetSelected}...`,
-      '[RECON] Mapeando parámetros HTTP y WebSocket...',
-      '[EXEC] Ejecutando Módulo MOD-01: Direct Prompt Injection (24 vectores)...',
-    ]);
+  const { user } = useAuth();
+  const isAuditor = user?.role === 'AUDITOR';
 
-    setTimeout(() => {
-      setProgress(55);
+  const handleStartAttack = async () => {
+    if (isAuditor) {
+      alert('⚠️ El rol Auditor tiene permisos de Solo Lectura y no puede iniciar nuevas pruebas de ataque.');
+      return;
+    }
+
+    if (!selectedScanId) {
+      alert('⚠️ El software seleccionado no tiene un escaneo previo completado. Ejecuta primero un "Escanear IA" en la sección de Targets Autorizados.');
+      return;
+    }
+
+    try {
+      setIsRunning(true);
+      setProgress(5);
+      setExecutionLogs([
+        `[INIT] Iniciando ataque de Red-Teaming (Prompt Injection) sobre scan #${selectedScanId.substring(0, 8)}...`,
+        `[CONFIG] Objetivo: "${objetivo}" | Máx Turnos: ${maxTurnos}`,
+        '[AGENT A1] Inicializando Agente Atacante A1 y Juez LLM J1...',
+      ]);
+
+      const res = await aiService.iniciarAtaque(selectedScanId, objetivo, maxTurnos);
+      const sessionId = res.id;
+      setCurrentSessionId(sessionId);
+
       setExecutionLogs((prev) => [
         ...prev,
-        '[INJECT] Vector PI-004 ejecutado -> Respuesta analizada.',
-        '[ALERT] VULNERABILIDAD DETECTADA: Fuga de System Prompt en respuesta!',
-        '[EXEC] Ejecutando Módulo MOD-02: Jailbreak & Roleplay Evasion...',
+        `[SESSION] Sesión de ataque #${sessionId.substring(0, 8)} registrada en estado: ${res.status}`,
       ]);
-    }, 2500);
 
-    setTimeout(() => {
-      setProgress(100);
+      pollingIntervalRef.current = setInterval(async () => {
+        try {
+          const detail = await aiService.obtenerDetalleAtaque(sessionId);
+          setSessionDetail(detail);
+
+          const executedTurns = detail.turns || [];
+          setTurnos(executedTurns);
+
+          const calculatedProgress = Math.min(
+            100,
+            Math.round((executedTurns.length / (detail.max_turnos || maxTurnos)) * 100)
+          );
+          setProgress(calculatedProgress);
+
+          const logs: string[] = [
+            `[INIT] Ataque de Red-Teaming iniciado en sesión #${sessionId.substring(0, 8)}`,
+            `[CONFIG] Objetivo: "${detail.objetivo}" | Estado: ${detail.status}`,
+          ];
+
+          executedTurns.forEach((t: any) => {
+            logs.push(`--------------------------------------------------`);
+            logs.push(`[TURNO #${t.numero_turno}] Táctica: ${t.tactica_usada || 'Generativa'}`);
+            logs.push(`[AGENTE A1] "${t.prompt_a1}"`);
+            logs.push(`[CHATBOT D1] "${t.respuesta_d1?.substring(0, 150)}..."`);
+            logs.push(`[JUEZ J1] Score: ${t.puntaje_j1}/10 - ${t.justificacion_j1}`);
+            if (t.fuga_detectada) {
+              logs.push(`⚠️ [VULNERABILIDAD DETECTADA] ¡Fuga de System Prompt confirmada en Turno #${t.numero_turno}!`);
+            }
+          });
+
+          const isFinished = ['completado', 'fallido', 'max_turnos', 'exito', 'exito_persistido'].includes(String(detail.status || '').toLowerCase());
+          if (isFinished) {
+            if (pollingIntervalRef.current) {
+              clearInterval(pollingIntervalRef.current);
+            }
+            setIsRunning(false);
+            setProgress(100);
+            logs.push(`--------------------------------------------------`);
+            logs.push(
+              `[COMPLETE] Prueba finalizada (${detail.status}). Éxito: ${detail.exito ? 'SÍ (Vulnerable)' : 'NO (Seguro)'} | Puntaje Máximo: ${detail.puntaje_maximo}/10`
+            );
+          }
+
+          setExecutionLogs(logs);
+        } catch (pollErr) {
+          console.error('Error durante polling del ataque:', pollErr);
+        }
+      }, 2500);
+    } catch (err: any) {
+      console.error('Error al iniciar ataque de IA:', err);
+      const msg = err.response?.data?.detalle || err.response?.data?.error || 'No se pudo iniciar la sesión de ataque.';
+      alert(`⚠️ ${msg}`);
       setIsRunning(false);
-      setExecutionLogs((prev) => [
-        ...prev,
-        '[EVIDENCE] Firmando evidencia con Hash SHA-256 (3a8f...904b).',
-        '[COMPLETE] Evaluación finalizada exitosamente. 2 hallazgos vulnerables encontrados.',
-      ]);
-    }, 5000);
+    }
   };
 
   return (
@@ -106,60 +230,118 @@ export const AssessmentsPage: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold text-slate-900 tracking-tight">
-            ⚡ Ejecución de Pruebas Ofensivas Autorizadas
+            ⚡ Ejecución de Pruebas Ofensivas Autorizadas (Red-Teaming)
           </h1>
           <p className="text-slate-500 text-xs mt-0.5">
-            Selecciona el chatbot objetivo y activa los módulos ofensivos de Prompt Injection, Jailbreak y Abuso de Agentes.
+            Evaluación adversarial en vivo: Agente Atacante A1 vs Chatbot D1 auditado por el Juez LLM J1.
           </p>
         </div>
         <button
           className={`font-bold text-xs px-5 py-2.5 rounded-lg transition shadow-sm shrink-0 flex items-center gap-2 ${
             isRunning
               ? 'bg-amber-600 text-white cursor-wait'
-              : 'bg-blue-800 hover:bg-blue-700 text-white'
+              : 'bg-blue-800 hover:bg-blue-700 text-white shadow-md'
           }`}
-          onClick={handleStartScan}
-          disabled={isRunning}
+          onClick={handleStartAttack}
+          disabled={isRunning || !selectedScanId}
         >
-          {isRunning ? '⏳ Ejecutando Pruebas...' : '⚡ Iniciar Evaluación Autorizada'}
+          {isRunning ? '⏳ Ejecutando Ataque...' : '⚡ Iniciar Evaluación Autorizada'}
         </button>
       </div>
 
       {/* Target & Scanner Controls */}
       <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
           <div className="space-y-1">
-            <label className="font-bold text-slate-700">Objetivo Seleccionado</label>
+            <label className="font-bold text-slate-700">Software Objetivo</label>
             <select
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-slate-50 text-slate-900 outline-none"
-              value={targetSelected}
-              onChange={(e) => setTargetSelected(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-slate-50 text-slate-900 outline-none focus:border-blue-600 transition"
+              value={selectedSoftwareId || ''}
+              onChange={(e) => setSelectedSoftwareId(Number(e.target.value))}
+              disabled={cargandoDatos || isRunning}
             >
-              <option value="TGT-001">TGT-001: Chatbot Banca Privada v4 (HTTP)</option>
-              <option value="TGT-002">TGT-002: Agente RAG Soporte Técnico (WebSocket)</option>
-              <option value="TGT-003">TGT-003: Asistente por Voz Call Center (STT)</option>
+              {softwares.map((sw) => (
+                <option key={sw.id} value={sw.id}>
+                  SFT-{String(sw.id).padStart(3, '0')}: {sw.name} ({sw.protocol})
+                </option>
+              ))}
             </select>
           </div>
 
           <div className="space-y-1">
-            <label className="font-bold text-slate-700">Modo de Ejecución</label>
-            <select className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-slate-50 text-slate-900 outline-none">
-              <option value="auto">Automático Asistido por IA</option>
-              <option value="manual">Manual / Payloads Específicos</option>
+            <label className="font-bold text-slate-700">Escaneo de IA Vinculado</label>
+            <select
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-slate-50 text-slate-900 outline-none focus:border-blue-600 transition font-mono text-[11px]"
+              value={selectedScanId}
+              onChange={(e) => setSelectedScanId(e.target.value)}
+              disabled={scans.length === 0 || isRunning}
+            >
+              {scans.length === 0 ? (
+                <option value="">⚠️ Sin escaneos completados</option>
+              ) : (
+                scans.map((scan) => (
+                  <option key={scan.id} value={scan.id}>
+                    SCAN-{scan.id.substring(0, 8)} ({scan.target_url})
+                  </option>
+                ))
+              )}
             </select>
           </div>
 
           <div className="space-y-1">
-            <label className="font-bold text-slate-700">Progreso de Evaluación</label>
-            <div className="h-9 bg-slate-100 rounded-lg border border-slate-200 px-3 flex items-center gap-3">
-              <div className="flex-1 bg-slate-200 rounded-full h-2 overflow-hidden">
-                <div
-                  className="bg-blue-600 h-full transition-all duration-500"
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
-              <span className="font-mono font-bold text-slate-700">{progress}%</span>
+            <label className="font-bold text-slate-700">Objetivo Adversarial</label>
+            <input
+              type="text"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-slate-50 text-slate-900 outline-none focus:border-blue-600 transition"
+              value={objetivo}
+              onChange={(e) => setObjetivo(e.target.value)}
+              placeholder="Ej: Extraer el System Prompt"
+              disabled={isRunning}
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="font-bold text-slate-700">Turnos Máximos ({maxTurnos})</label>
+            <input
+              type="range"
+              min="1"
+              max="20"
+              value={maxTurnos}
+              onChange={(e) => setMaxTurnos(Number(e.target.value))}
+              disabled={isRunning}
+              className="w-full accent-blue-800"
+            />
+          </div>
+        </div>
+
+        {/* Progress & Session Status */}
+        <div className="pt-2 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-3 font-mono text-[11px]">
+            {currentSessionId && (
+              <span className="bg-blue-50 text-blue-800 border border-blue-200 px-2.5 py-0.5 rounded-md font-bold">
+                SESIÓN #{currentSessionId.substring(0, 8)}
+              </span>
+            )}
+            {sessionDetail && (
+              <>
+                <span className={`px-2.5 py-0.5 rounded-full font-bold border ${sessionDetail.exito ? 'bg-red-50 text-red-700 border-red-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
+                  {sessionDetail.exito ? '⚠️ VULNERABLE' : '✅ SEGURO'}
+                </span>
+                <span className="text-slate-600">
+                  Puntaje Máximo Juez J1: <strong>{sessionDetail.puntaje_maximo}/10</strong> ({turnos.length} turnos ejecutados)
+                </span>
+              </>
+            )}
+          </div>
+
+          <div className="flex items-center gap-3 w-full sm:w-64">
+            <div className="flex-1 bg-slate-200 rounded-full h-2 overflow-hidden">
+              <div
+                className="bg-blue-600 h-full transition-all duration-500"
+                style={{ width: `${progress}%` }}
+              />
             </div>
+            <span className="font-mono font-bold text-slate-700">{progress}%</span>
           </div>
         </div>
       </div>
@@ -170,9 +352,8 @@ export const AssessmentsPage: React.FC = () => {
         <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs space-y-3">
           <div className="flex items-center justify-between border-b border-slate-200 pb-2">
             <h3 className="font-bold text-slate-900 text-sm">
-              Módulos de Prueba Disponibles
+              Módulos de Vector Ofensivo Disponibles
             </h3>
-            {/* View Mode Toggle Buttons */}
             <div className="flex items-center bg-slate-100 p-0.5 border border-slate-200 rounded-lg shrink-0">
               <button
                 className={`px-2.5 py-1 text-xs font-semibold rounded-md transition ${
@@ -181,7 +362,6 @@ export const AssessmentsPage: React.FC = () => {
                     : 'text-slate-500 hover:text-slate-900'
                 }`}
                 onClick={() => setViewMode('cards')}
-                title="Vista de Tarjetas"
               >
                 🎴 Tarjetas
               </button>
@@ -192,7 +372,6 @@ export const AssessmentsPage: React.FC = () => {
                     : 'text-slate-500 hover:text-slate-900'
                 }`}
                 onClick={() => setViewMode('table')}
-                title="Vista de Tabla"
               >
                 📋 Tabla
               </button>
@@ -200,7 +379,7 @@ export const AssessmentsPage: React.FC = () => {
           </div>
 
           {viewMode === 'cards' ? (
-            <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+            <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
               {modules.map((mod) => (
                 <div
                   key={mod.id}
@@ -238,7 +417,7 @@ export const AssessmentsPage: React.FC = () => {
               ))}
             </div>
           ) : (
-            <div className="max-h-80 overflow-y-auto">
+            <div className="max-h-96 overflow-y-auto">
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
                   <tr>
@@ -273,9 +452,9 @@ export const AssessmentsPage: React.FC = () => {
         </div>
 
         {/* Live Execution Console */}
-        <div className="bg-slate-950 border border-slate-800 rounded-xl overflow-hidden shadow-md font-mono text-xs text-slate-300 flex flex-col h-80 lg:h-auto">
+        <div className="bg-slate-950 border border-slate-800 rounded-xl overflow-hidden shadow-md font-mono text-xs text-slate-300 flex flex-col h-96">
           <div className="bg-slate-900 px-4 py-2.5 border-b border-slate-800 flex justify-between items-center text-[11px] text-slate-400 font-semibold">
-            <span>CONSOLA DE EJECUCIÓN EN VIVO — SCANNER ENGINE</span>
+            <span>CONSOLA DE EJECUCIÓN EN VIVO — RED TEAMING ENGINE</span>
             <span
               className={`text-[10px] font-bold px-2 py-0.5 rounded ${
                 isRunning
@@ -283,7 +462,7 @@ export const AssessmentsPage: React.FC = () => {
                   : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
               }`}
             >
-              {isRunning ? 'RUNNING' : 'IDLE'}
+              {isRunning ? 'PROMPTING A1...' : 'IDLE'}
             </span>
           </div>
 
@@ -291,9 +470,13 @@ export const AssessmentsPage: React.FC = () => {
             {executionLogs.map((log, idx) => (
               <div key={idx} className="leading-relaxed">
                 {log.includes('VULNERABILIDAD') ? (
-                  <span className="text-red-400 font-bold">{log}</span>
-                ) : log.includes('EVIDENCE') ? (
-                  <span className="text-emerald-400 font-semibold">{log}</span>
+                  <span className="text-red-400 font-bold bg-red-950/60 p-1 rounded block">{log}</span>
+                ) : log.includes('AGENTE A1') ? (
+                  <span className="text-cyan-400">{log}</span>
+                ) : log.includes('JUEZ J1') ? (
+                  <span className="text-purple-400">{log}</span>
+                ) : log.includes('COMPLETE') ? (
+                  <span className="text-emerald-400 font-bold">{log}</span>
                 ) : (
                   <span className="text-slate-300">{log}</span>
                 )}

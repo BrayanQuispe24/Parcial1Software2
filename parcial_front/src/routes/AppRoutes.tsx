@@ -33,10 +33,6 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 };
 
 const DefaultAppRedirect: React.FC = () => {
-  const { user } = useAuth();
-  if (user?.role === 'AUDITOR') {
-    return <Navigate to="/app/profile" replace />;
-  }
   return <Navigate to="/app/dashboard" replace />;
 };
 
