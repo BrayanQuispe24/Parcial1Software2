@@ -1,0 +1,48 @@
+# Environment Variables
+.env
+.env.local
+.env.*.local
+.env.*
+env
+env.*
+*.env
+!.env.example
+!.env.docker.example
+!.env.*.example
+
+# Python / Django
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+*.db
+db.sqlite3
+db.sqlite3-journal
+
+# Node / Frontend
+node_modules/
+dist/
+dist-ssr/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# IDEs & Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# OS generated files
+.DS_Store
+Thumbs.db
