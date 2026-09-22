@@ -171,11 +171,13 @@ EMAIL_HOST_PASSWORD = email_pass
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER or 'no-reply@genai-security-lab.com')
 
 # CORS Configuration
-cors_origins_raw = os.getenv('CORS_ALLOWED_ORIGINS', '')
-if cors_origins_raw:
-    CORS_ALLOWED_ORIGINS = [origin.strip() for origin in cors_origins_raw.split(',') if origin.strip()]
-else:
+cors_allow_all = os.getenv('CORS_ALLOW_ALL_ORIGINS', '').strip().lower() in ('true', '1', 't')
+cors_origins_raw = os.getenv('CORS_ALLOWED_ORIGINS', '').strip()
+
+if cors_allow_all or cors_origins_raw == '*' or not cors_origins_raw:
     CORS_ALLOW_ALL_ORIGINS = True
+else:
+    CORS_ALLOWED_ORIGINS = [origin.strip() for origin in cors_origins_raw.split(',') if origin.strip()]
 
 
 # Django REST Framework Configuration

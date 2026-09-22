@@ -10,5 +10,6 @@ sqlparse==0.6.0
 typing_extensions==4.16.0
 stripe>=11.0.0
 requests>=2.31.0
+gunicorn>=22.0.0
 
 
