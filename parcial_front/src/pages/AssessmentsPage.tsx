@@ -80,6 +80,8 @@ export const AssessmentsPage: React.FC = () => {
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
   const pollingIntervalRef = useRef<any>(null);
 
+  const STORAGE_KEY_ACTIVE_SESSION = 'active_redteam_session_id';
+
   // Cargar softwares del backend
   const fetchSoftwares = async () => {
     try {
@@ -122,6 +124,107 @@ export const AssessmentsPage: React.FC = () => {
 
     fetchScans();
   }, [selectedSoftwareId]);
+
+  // Función reutilizable para consultar el estado y turnos de la sesión de ataque
+  const pollSessionStatus = async (sessionId: string): Promise<boolean> => {
+    try {
+      const detail = await aiService.obtenerDetalleAtaque(sessionId);
+      setSessionDetail(detail);
+
+      const executedTurns = detail.turns || [];
+      setTurnos(executedTurns);
+
+      const targetMaxTurnos = detail.max_turnos || maxTurnos || 10;
+      const calculatedProgress = Math.min(
+        100,
+        Math.round((executedTurns.length / targetMaxTurnos) * 100)
+      );
+      setProgress(calculatedProgress);
+
+      const logs: string[] = [
+        `[INIT] Ataque de Red-Teaming iniciado en sesión #${sessionId.substring(0, 8)}`,
+        `[CONFIG] Objetivo: "${detail.objetivo}" | Estado: ${detail.status}`,
+      ];
+
+      executedTurns.forEach((t: any) => {
+        logs.push(`--------------------------------------------------`);
+        logs.push(`[TURNO #${t.numero_turno}] Táctica: ${t.tactica_usada || 'Generativa'}`);
+        logs.push(`[AGENTE A1] "${t.prompt_a1}"`);
+        logs.push(`[CHATBOT D1] "${t.respuesta_d1?.substring(0, 150)}..."`);
+        logs.push(`[JUEZ J1] Score: ${t.puntaje_j1}/10 - ${t.justificacion_j1}`);
+        if (t.fuga_detectada) {
+          logs.push(`⚠️ [VULNERABILIDAD DETECTADA] ¡Fuga de System Prompt confirmada en Turno #${t.numero_turno}!`);
+        }
+      });
+
+      const statusLower = String(detail.status || '').toLowerCase();
+      const isFinished = ['completado', 'fallido', 'max_turnos', 'exito', 'exito_persistido'].includes(statusLower);
+
+      if (isFinished) {
+        if (pollingIntervalRef.current) {
+          clearInterval(pollingIntervalRef.current);
+          pollingIntervalRef.current = null;
+        }
+        setIsRunning(false);
+        setProgress(100);
+        logs.push(`--------------------------------------------------`);
+        logs.push(
+          `[COMPLETE] Prueba finalizada (${detail.status}). Éxito: ${detail.exito ? 'SÍ (Vulnerable)' : 'NO (Seguro)'} | Puntaje Máximo: ${detail.puntaje_maximo}/10`
+        );
+      } else {
+        setIsRunning(true);
+      }
+
+      setExecutionLogs(logs);
+      return isFinished;
+    } catch (pollErr) {
+      console.error('Error durante polling del ataque:', pollErr);
+      return false;
+    }
+  };
+
+  const startPolling = (sessionId: string) => {
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+    }
+    pollSessionStatus(sessionId);
+    pollingIntervalRef.current = setInterval(() => {
+      pollSessionStatus(sessionId);
+    }, 2500);
+  };
+
+  // Re-acoplar a la sesión guardada en localStorage si existe al cargar
+  useEffect(() => {
+    const savedSessionId = localStorage.getItem(STORAGE_KEY_ACTIVE_SESSION);
+    if (savedSessionId) {
+      setCurrentSessionId(savedSessionId);
+      pollSessionStatus(savedSessionId).then((isFinished) => {
+        if (!isFinished) {
+          startPolling(savedSessionId);
+        }
+      });
+    }
+  }, []);
+
+  // Escuchar cambio de visibilidad de la pestaña (visibilitychange y focus)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        const savedSessionId = localStorage.getItem(STORAGE_KEY_ACTIVE_SESSION) || currentSessionId;
+        if (savedSessionId) {
+          pollSessionStatus(savedSessionId);
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleVisibilityChange);
+    };
+  }, [currentSessionId]);
 
   useEffect(() => {
     return () => {
@@ -167,60 +270,14 @@ export const AssessmentsPage: React.FC = () => {
       });
       const sessionId = res.id;
       setCurrentSessionId(sessionId);
+      localStorage.setItem(STORAGE_KEY_ACTIVE_SESSION, sessionId);
 
       setExecutionLogs((prev) => [
         ...prev,
         `[SESSION] Sesión de ataque #${sessionId.substring(0, 8)} registrada en estado: ${res.status}`,
       ]);
 
-      pollingIntervalRef.current = setInterval(async () => {
-        try {
-          const detail = await aiService.obtenerDetalleAtaque(sessionId);
-          setSessionDetail(detail);
-
-          const executedTurns = detail.turns || [];
-          setTurnos(executedTurns);
-
-          const calculatedProgress = Math.min(
-            100,
-            Math.round((executedTurns.length / (detail.max_turnos || maxTurnos)) * 100)
-          );
-          setProgress(calculatedProgress);
-
-          const logs: string[] = [
-            `[INIT] Ataque de Red-Teaming iniciado en sesión #${sessionId.substring(0, 8)}`,
-            `[CONFIG] Objetivo: "${detail.objetivo}" | Estado: ${detail.status}`,
-          ];
-
-          executedTurns.forEach((t: any) => {
-            logs.push(`--------------------------------------------------`);
-            logs.push(`[TURNO #${t.numero_turno}] Táctica: ${t.tactica_usada || 'Generativa'}`);
-            logs.push(`[AGENTE A1] "${t.prompt_a1}"`);
-            logs.push(`[CHATBOT D1] "${t.respuesta_d1?.substring(0, 150)}..."`);
-            logs.push(`[JUEZ J1] Score: ${t.puntaje_j1}/10 - ${t.justificacion_j1}`);
-            if (t.fuga_detectada) {
-              logs.push(`⚠️ [VULNERABILIDAD DETECTADA] ¡Fuga de System Prompt confirmada en Turno #${t.numero_turno}!`);
-            }
-          });
-
-          const isFinished = ['completado', 'fallido', 'max_turnos', 'exito', 'exito_persistido'].includes(String(detail.status || '').toLowerCase());
-          if (isFinished) {
-            if (pollingIntervalRef.current) {
-              clearInterval(pollingIntervalRef.current);
-            }
-            setIsRunning(false);
-            setProgress(100);
-            logs.push(`--------------------------------------------------`);
-            logs.push(
-              `[COMPLETE] Prueba finalizada (${detail.status}). Éxito: ${detail.exito ? 'SÍ (Vulnerable)' : 'NO (Seguro)'} | Puntaje Máximo: ${detail.puntaje_maximo}/10`
-            );
-          }
-
-          setExecutionLogs(logs);
-        } catch (pollErr) {
-          console.error('Error durante polling del ataque:', pollErr);
-        }
-      }, 2500);
+      startPolling(sessionId);
     } catch (err: any) {
       console.error('Error al iniciar ataque de IA:', err);
       const msg = err.response?.data?.detalle || err.response?.data?.error || 'No se pudo iniciar la sesión de ataque.';

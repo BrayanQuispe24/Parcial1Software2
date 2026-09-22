@@ -264,7 +264,7 @@ export const SoftwarePDFReportDocument: React.FC<SoftwarePDFReportProps> = ({
           <View>
             <Text style={styles.title}>Informe Técnico Exhaustivo de Seguridad e IA</Text>
             <Text style={styles.subtitle}>
-              GenAI Security Lab - Evaluación de Vulnerabilidades, Tráfico de Red y Red-Teaming
+              GenVuln AI - Evaluación de Vulnerabilidades, Tráfico de Red y Red-Teaming
             </Text>
           </View>
           <View>
@@ -559,7 +559,7 @@ export const SoftwarePDFReportDocument: React.FC<SoftwarePDFReportProps> = ({
 
         {/* Footer */}
         <View style={styles.footer} fixed>
-          <Text>Plataforma de Auditoría de IA - GenAI Security Lab</Text>
+          <Text>Plataforma de Auditoría de IA - GenVuln AI</Text>
           <Text>Target: SFT-{String(software.id).padStart(3, '0')} | {software.name}</Text>
           <Text render={({ pageNumber, totalPages }) => `Página ${pageNumber} de ${totalPages}`} />
         </View>

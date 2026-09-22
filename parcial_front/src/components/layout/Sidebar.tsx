@@ -36,9 +36,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div className="h-13 flex items-center justify-between px-4 border-b border-slate-800">
         <div className="flex items-center gap-2.5 font-bold text-slate-100 text-sm whitespace-nowrap overflow-hidden">
           <div className="w-7 h-7 bg-gradient-to-br from-blue-600 to-blue-700 rounded flex items-center justify-center text-white font-extrabold text-xs shrink-0">
-            AI
+            GV
           </div>
-          <span className={`${collapsed ? 'md:hidden' : 'inline'}`}>GenAI Security Lab</span>
+          <span className={`${collapsed ? 'md:hidden' : 'inline'}`}>GenVuln AI</span>
         </div>
         <div className="flex items-center gap-1">
           <button
@@ -325,7 +325,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Footer */}
       <div className={`p-4 border-t border-slate-800 text-[11px] text-slate-500 space-y-0.5 ${collapsed ? 'md:hidden' : 'block'}`}>
-        <div className="font-bold text-slate-200">AI Security Lab v2.4</div>
+        <div className="font-bold text-slate-200">GenVuln AI v2.4</div>
         <div>Scope: Authorized LAB</div>
       </div>
     </aside>

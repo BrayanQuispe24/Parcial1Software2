@@ -219,7 +219,7 @@ export const ExecutivePDFReportDocument: React.FC<ExecutivePDFReportProps> = ({
           <View>
             <Text style={styles.title}>Informe Técnico Evaluativo de Seguridad IA</Text>
             <Text style={styles.subtitle}>
-              GenAI Security Lab - Plataforma de Red-Teaming y Descubrimiento de Canales LLM
+              GenVuln AI - Plataforma de Red-Teaming y Descubrimiento de Canales LLM
             </Text>
           </View>
           <View>
@@ -300,7 +300,7 @@ export const ExecutivePDFReportDocument: React.FC<ExecutivePDFReportProps> = ({
 
         {/* Footer */}
         <View style={styles.footer} fixed>
-          <Text>GenAI Security Lab v2.4 - Documento Confidencial de Auditoría de IA</Text>
+          <Text>GenVuln AI v2.4 - Documento Confidencial de Auditoría de IA</Text>
           <Text render={({ pageNumber, totalPages }) => `Página ${pageNumber} de ${totalPages}`} />
         </View>
       </Page>

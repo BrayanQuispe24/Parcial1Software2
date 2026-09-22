@@ -10,7 +10,10 @@ from .ai_proxy_views import (
     SaludIAProxyView,
     ListarEscaneosIAProxyView,
     ObservacionesEscaneoIAProxyView,
-    DetalleEscaneoIAProxyView
+    DetalleEscaneoIAProxyView,
+    UrlsAutorizadasIAProxyView,
+    UrlsAutorizadasEfectivasIAProxyView,
+    DetalleUrlAutorizadaIAProxyView
 )
 
 router = DefaultRouter()
@@ -18,6 +21,12 @@ router.register(r'software', SoftwareViewSet, basename='software')
 
 urlpatterns = [
     path('', include(router.urls)),
+
+    # Rutas directas bajo /api/urls-autorizadas/
+    path('urls-autorizadas/', UrlsAutorizadasIAProxyView.as_view(), name='urls-autorizadas'),
+    path('urls-autorizadas/efectivas/', UrlsAutorizadasEfectivasIAProxyView.as_view(), name='urls-autorizadas-efectivas'),
+    path('urls-autorizadas/<uuid:pk>/', DetalleUrlAutorizadaIAProxyView.as_view(), name='urls-autorizadas-detalle'),
+
     # Rutas bajo /api/ia/
     path('ia/escaneo/', IniciarEscaneoIAProxyView.as_view(), name='ia-escaneo'),
     path('ia/escaneos/', ListarEscaneosIAProxyView.as_view(), name='ia-escaneos-lista'),
@@ -27,6 +36,9 @@ urlpatterns = [
     path('ia/ataque/', IniciarAtaqueIAProxyView.as_view(), name='ia-ataque'),
     path('ia/ataque/<uuid:session_id>/', DetalleAtaqueIAProxyView.as_view(), name='ia-ataque-detalle'),
     path('ia/salud/', SaludIAProxyView.as_view(), name='ia-salud'),
+    path('ia/urls-autorizadas/', UrlsAutorizadasIAProxyView.as_view(), name='ia-urls-autorizadas'),
+    path('ia/urls-autorizadas/efectivas/', UrlsAutorizadasEfectivasIAProxyView.as_view(), name='ia-urls-autorizadas-efectivas'),
+    path('ia/urls-autorizadas/<uuid:pk>/', DetalleUrlAutorizadaIAProxyView.as_view(), name='ia-urls-autorizadas-detalle'),
 
     # Rutas alias bajo /api/pruebas/ia/
     path('pruebas/ia/escaneo/', IniciarEscaneoIAProxyView.as_view(), name='pruebas-ia-escaneo'),
@@ -37,7 +49,11 @@ urlpatterns = [
     path('pruebas/ia/ataque/', IniciarAtaqueIAProxyView.as_view(), name='pruebas-ia-ataque'),
     path('pruebas/ia/ataque/<uuid:session_id>/', DetalleAtaqueIAProxyView.as_view(), name='pruebas-ia-ataque-detalle'),
     path('pruebas/ia/salud/', SaludIAProxyView.as_view(), name='pruebas-ia-salud'),
+    path('pruebas/ia/urls-autorizadas/', UrlsAutorizadasIAProxyView.as_view(), name='pruebas-ia-urls-autorizadas'),
+    path('pruebas/ia/urls-autorizadas/efectivas/', UrlsAutorizadasEfectivasIAProxyView.as_view(), name='pruebas-ia-urls-autorizadas-efectivas'),
+    path('pruebas/ia/urls-autorizadas/<uuid:pk>/', DetalleUrlAutorizadaIAProxyView.as_view(), name='pruebas-ia-urls-autorizadas-detalle'),
 ]
+
 
 
 

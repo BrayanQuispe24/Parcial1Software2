@@ -44,7 +44,7 @@ def render_html_admin_notification(user):
     <body>
       <div class="container">
         <div class="header">
-          <h2><span class="brand-icon">AI</span> GenAI Security Lab</h2>
+          <h2><span class="brand-icon">GV</span> GenVuln AI</h2>
           <p style="margin:4px 0 0 0; font-size: 13px; color: #94a3b8;">Notificación de Seguridad del Sistema</p>
         </div>
         <div class="body">
@@ -62,7 +62,7 @@ def render_html_admin_notification(user):
           <p>Por favor, ingresa al panel de administración para habilitar la cuenta si la solicitud es legítima.</p>
         </div>
         <div class="footer">
-          © 2026 GenAI Security Lab Enterprise • Control de Accesos
+          © 2026 GenVuln AI Enterprise • Control de Accesos
         </div>
       </div>
     </body>
@@ -94,7 +94,7 @@ def render_html_activation_email(user):
     <body>
       <div class="container">
         <div class="header">
-          <h2><span class="brand-icon">AI</span> GenAI Security Lab</h2>
+          <h2><span class="brand-icon">GV</span> GenVuln AI</h2>
           <p style="margin:6px 0 0 0; font-size: 14px; color: #93c5fd;">Plataforma de Evaluación de Seguridad en IA</p>
         </div>
         <div class="body">
@@ -120,7 +120,7 @@ def render_html_activation_email(user):
 
             <div class="terms-item">
               <strong>3. Confidencialidad y Manejo de Datos:</strong><br>
-              Queda estrictamente prohibida la divulgación no autorizada de tokens JWT, credenciales o prompts de sistema obtenidos durante las pruebas.
+              Queda strictly prohibida la divulgación no autorizada de tokens JWT, credenciales o prompts de sistema obtenidos durante las pruebas.
             </div>
 
             <div class="terms-item">
@@ -130,7 +130,7 @@ def render_html_activation_email(user):
           </div>
         </div>
         <div class="footer">
-          © 2026 GenAI Security Lab Enterprise • Seguridad en Inteligencia Artificial
+          © 2026 GenVuln AI Enterprise • Seguridad en Inteligencia Artificial
         </div>
       </div>
     </body>
@@ -150,7 +150,7 @@ class RegisterView(generics.CreateAPIView):
         user = serializer.save()
 
         # Enviar correo al Administrador del Sistema con formato plano + HTML estilizado
-        subject = f"[GenAI Security Lab] Nueva cuenta de Pentester registrada: {user.username}"
+        subject = f"[GenVuln AI] Nueva cuenta de Pentester registrada: {user.username}"
         plain_message = f"Nueva cuenta de Pentester registrada (Pendiente de activación): {user.username} ({user.email})."
         html_message = render_html_admin_notification(user)
 

@@ -335,3 +335,108 @@ class DetalleEscaneoIAProxyView(APIView):
             )
 
 
+class UrlsAutorizadasIAProxyView(APIView):
+    """
+    Proxy para /api/urls-autorizadas/ o /api/ia/urls-autorizadas/
+    GET: Lista las URLs autorizadas registradas en la BD del microservicio de IA.
+    POST: Registra una nueva URL/host autorizada.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        try:
+            res = requests.get(
+                f"{AI_MICROSERVICE_URL}/urls-autorizadas/",
+                timeout=10
+            )
+            return Response(res.json(), status=res.status_code)
+        except requests.exceptions.RequestException as e:
+            return Response(
+                {
+                    "error": "Error de comunicación con el Microservicio de IA",
+                    "detalle": str(e)
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE
+            )
+
+    def post(self, request):
+        try:
+            res = requests.post(
+                f"{AI_MICROSERVICE_URL}/urls-autorizadas/",
+                json=request.data,
+                timeout=10
+            )
+            return Response(res.json(), status=res.status_code)
+        except requests.exceptions.RequestException as e:
+            return Response(
+                {
+                    "error": "Error de comunicación con el Microservicio de IA",
+                    "detalle": str(e)
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE
+            )
+
+
+class UrlsAutorizadasEfectivasIAProxyView(APIView):
+    """
+    GET /api/urls-autorizadas/efectivas/ o /api/ia/urls-autorizadas/efectivas/
+    Obtiene la lista consolidada de todas las URLs y hosts permitidos (combinando .env y BD).
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        try:
+            res = requests.get(
+                f"{AI_MICROSERVICE_URL}/urls-autorizadas/efectivas/",
+                timeout=10
+            )
+            return Response(res.json(), status=res.status_code)
+        except requests.exceptions.RequestException as e:
+            return Response(
+                {
+                    "error": "Error de comunicación con el Microservicio de IA",
+                    "detalle": str(e)
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE
+            )
+
+
+class DetalleUrlAutorizadaIAProxyView(APIView):
+    """
+    Proxy para /api/urls-autorizadas/{pk}/
+    Soporta GET, PUT, PATCH, DELETE.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, pk):
+        try:
+            res = requests.get(f"{AI_MICROSERVICE_URL}/urls-autorizadas/{pk}/", timeout=10)
+            return Response(res.json(), status=res.status_code)
+        except requests.exceptions.RequestException as e:
+            return Response({"error": "Error de comunicación con el Microservicio de IA", "detalle": str(e)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+    def put(self, request, pk):
+        try:
+            res = requests.put(f"{AI_MICROSERVICE_URL}/urls-autorizadas/{pk}/", json=request.data, timeout=10)
+            return Response(res.json(), status=res.status_code)
+        except requests.exceptions.RequestException as e:
+            return Response({"error": "Error de comunicación con el Microservicio de IA", "detalle": str(e)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+    def patch(self, request, pk):
+        try:
+            res = requests.patch(f"{AI_MICROSERVICE_URL}/urls-autorizadas/{pk}/", json=request.data, timeout=10)
+            return Response(res.json(), status=res.status_code)
+        except requests.exceptions.RequestException as e:
+            return Response({"error": "Error de comunicación con el Microservicio de IA", "detalle": str(e)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+    def delete(self, request, pk):
+        try:
+            res = requests.delete(f"{AI_MICROSERVICE_URL}/urls-autorizadas/{pk}/", timeout=10)
+            if res.status_code == 204:
+                return Response(status=status.HTTP_204_NO_CONTENT)
+            return Response(res.json(), status=res.status_code)
+        except requests.exceptions.RequestException as e:
+            return Response({"error": "Error de comunicación con el Microservicio de IA", "detalle": str(e)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+
+

@@ -108,6 +108,7 @@ export const TargetsPage: React.FC = () => {
     llm_provider: '',
     system_prompt_sample: '',
     status: 'Activo' as 'Activo' | 'Inactivo' | 'Mapeando',
+    autoAuthorizeUrl: true,
   });
 
   const fetchSoftwaresAndSubscription = async () => {
@@ -176,6 +177,7 @@ export const TargetsPage: React.FC = () => {
       llm_provider: '',
       system_prompt_sample: '',
       status: 'Activo',
+      autoAuthorizeUrl: true,
     });
     setIsModalOpen(true);
   };
@@ -189,6 +191,7 @@ export const TargetsPage: React.FC = () => {
       llm_provider: software.llm_provider,
       system_prompt_sample: software.system_prompt_sample || '',
       status: software.status,
+      autoAuthorizeUrl: true,
     });
     setIsModalOpen(true);
   };
@@ -209,10 +212,32 @@ export const TargetsPage: React.FC = () => {
     e.preventDefault();
     try {
       setSubmitting(true);
+
+      // Si la opción de auto-autorización de URL está activa, registrar en el microservicio de IA
+      if (formData.autoAuthorizeUrl && formData.endpoint) {
+        try {
+          await aiService.agregarUrlAutorizada(
+            formData.endpoint,
+            `Software Objetivo: ${formData.name || 'Chatbot'}`
+          );
+        } catch (authErr) {
+          console.warn('Nota: No se pudo autorizar la URL en el microservicio o ya existía previamente:', authErr);
+        }
+      }
+
+      const softwarePayload = {
+        name: formData.name,
+        endpoint: formData.endpoint,
+        protocol: formData.protocol,
+        llm_provider: formData.llm_provider,
+        system_prompt_sample: formData.system_prompt_sample,
+        status: formData.status,
+      };
+
       if (editingSoftware) {
-        await softwareService.updateSoftware(editingSoftware.id, formData);
+        await softwareService.updateSoftware(editingSoftware.id, softwarePayload);
       } else {
-        await softwareService.createSoftware(formData);
+        await softwareService.createSoftware(softwarePayload);
       }
       setIsModalOpen(false);
       fetchSoftwaresAndSubscription();
@@ -764,6 +789,22 @@ export const TargetsPage: React.FC = () => {
                   required
                 />
               </div>
+
+              {/* Control de Autorización SSRF en Microservicio de IA */}
+              <div className="p-3 bg-blue-50/80 border border-blue-200 rounded-xl flex items-start gap-2.5">
+                <input
+                  type="checkbox"
+                  id="autoAuthorizeUrl"
+                  checked={formData.autoAuthorizeUrl}
+                  onChange={(e) => setFormData({ ...formData, autoAuthorizeUrl: e.target.checked })}
+                  className="mt-0.5 h-4 w-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer"
+                />
+                <label htmlFor="autoAuthorizeUrl" className="text-[11px] text-slate-700 font-medium leading-snug cursor-pointer select-none">
+                  <span className="font-bold text-blue-900 block">Autorizar automáticamente para Escaneos de IA (Mitigación SSRF)</span>
+                  Registra dinámicamente este host/URL en la lista autorizada del microservicio para permitir análisis inmediato con Playwright y Ollama.
+                </label>
+              </div>
+
 
               <div className="space-y-1">
                 <label className="font-semibold text-slate-700">

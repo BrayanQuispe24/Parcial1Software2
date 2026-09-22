@@ -36,11 +36,11 @@ export const LandingPage: React.FC = () => {
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <a href="#hero" className="flex items-center gap-2.5 group">
             <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-sky-400 rounded-lg flex items-center justify-center font-black text-xs text-white shadow-md shadow-blue-500/20 group-hover:scale-110 group-hover:shadow-sky-400/40 transition-all duration-300">
-              AI
+              GV
             </div>
             <div className="flex flex-col">
               <span className="font-extrabold text-sm sm:text-base tracking-tight leading-none text-white group-hover:text-sky-300 transition-colors">
-                GenAI Security Lab
+                GenVuln AI
               </span>
               <span className="text-[10px] text-sky-400 font-semibold tracking-wider">
                 LLM OFFENSIVE SECURITY PLATFORM

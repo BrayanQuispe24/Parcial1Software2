@@ -4,6 +4,7 @@ import { useAuth, type User } from '../context/AuthContext';
 import { UserTable } from '../features/users/components/UserTable';
 import { UserCardGrid } from '../features/users/components/UserCardGrid';
 import { UserFormModal } from '../features/users/components/UserFormModal';
+import { ConfirmEnableModal } from '../features/users/components/ConfirmEnableModal';
 
 export const UsersPage: React.FC = () => {
   const { user: currentUser } = useAuth();
@@ -14,6 +15,12 @@ export const UsersPage: React.FC = () => {
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+
+  // Estados para Modal de Confirmación de Habilitación y Toasts del Sistema
+  const [userToEnable, setUserToEnable] = useState<User | null>(null);
+  const [isEnableModalOpen, setIsEnableModalOpen] = useState<boolean>(false);
+  const [enablingSubmitting, setEnablingSubmitting] = useState<boolean>(false);
+  const [toastMessage, setToastMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -49,18 +56,39 @@ export const UsersPage: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const handleEnableUser = async (userId: number) => {
-    if (window.confirm(`¿Confirmas la HABILITACIÓN de la cuenta del Pentester #${userId}? Se le enviará un correo con los Términos y Condiciones.`)) {
-      try {
-        await api.post(`/users/${userId}/enable/`);
-        alert("✓ Cuenta de Pentester habilitada exitosamente. Se envió el correo de confirmación.");
-        fetchUsers();
-      } catch (err: any) {
-        console.error('Error al habilitar usuario:', err);
-        alert(err.response?.data?.detail || "Ocurrió un error al habilitar la cuenta.");
-      }
+  const handleEnableUser = (userId: number) => {
+    const targetUser = users.find((u) => u.id === userId);
+    if (targetUser) {
+      setUserToEnable(targetUser);
+      setIsEnableModalOpen(true);
     }
   };
+
+  const handleConfirmEnable = async () => {
+    if (!userToEnable) return;
+    try {
+      setEnablingSubmitting(true);
+      await api.post(`/users/${userToEnable.id}/enable/`);
+      setToastMessage({
+        type: 'success',
+        text: `✓ Cuenta de Pentester #${userToEnable.id} (${userToEnable.username}) habilitada exitosamente. Se envió el correo de confirmación.`,
+      });
+      setIsEnableModalOpen(false);
+      setUserToEnable(null);
+      fetchUsers();
+    } catch (err: any) {
+      console.error('Error al habilitar usuario:', err);
+      const msg = err.response?.data?.detail || err.response?.data?.error || 'Ocurrió un error al habilitar la cuenta.';
+      setToastMessage({
+        type: 'error',
+        text: `⚠️ ${msg}`,
+      });
+    } finally {
+      setEnablingSubmitting(false);
+      setTimeout(() => setToastMessage(null), 6000);
+    }
+  };
+
 
   const handleDeleteUser = async (userId: number) => {
     if (window.confirm(`¿Estás seguro de que deseas eliminar al usuario #${userId}?`)) {
@@ -230,6 +258,25 @@ export const UsersPage: React.FC = () => {
         )}
       </div>
 
+      {/* Toast Notification Banner */}
+      {toastMessage && (
+        <div
+          className={`p-3.5 rounded-xl border text-xs font-semibold flex items-center justify-between shadow-xs transition animate-in fade-in ${
+            toastMessage.type === 'success'
+              ? 'bg-emerald-50 text-emerald-900 border-emerald-300'
+              : 'bg-red-50 text-red-900 border-red-300'
+          }`}
+        >
+          <span>{toastMessage.text}</span>
+          <button
+            onClick={() => setToastMessage(null)}
+            className="text-slate-400 hover:text-slate-700 font-bold ml-3 text-xs"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* User Form Modal */}
       <UserFormModal
         isOpen={isModalOpen}
@@ -238,6 +285,19 @@ export const UsersPage: React.FC = () => {
         initialData={editingUser}
         currentUserRole={currentUser?.role}
       />
+
+      {/* Modal de Confirmación de Habilitación del Sistema */}
+      <ConfirmEnableModal
+        isOpen={isEnableModalOpen}
+        onClose={() => {
+          setIsEnableModalOpen(false);
+          setUserToEnable(null);
+        }}
+        onConfirm={handleConfirmEnable}
+        user={userToEnable}
+        submitting={enablingSubmitting}
+      />
     </div>
   );
 };
+

@@ -35,10 +35,10 @@ export const LoginPage: React.FC = () => {
       <div className="bg-white w-full max-w-md rounded-2xl p-5 sm:p-8 shadow-2xl border border-slate-700 space-y-6">
         <div className="text-center space-y-2">
           <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-700 rounded-lg flex items-center justify-center font-extrabold text-sm text-white mx-auto shadow-md">
-            AI
+            GV
           </div>
-          <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">GenAI Security Lab</h2>
-          <p className="text-slate-500 text-xs">Plataforma de Evaluación de Seguridad en IA</p>
+          <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">GenVuln AI</h2>
+          <p className="text-slate-500 text-xs">Generación & Ejecución de Ataques Web de IA</p>
         </div>
 
         {error && (

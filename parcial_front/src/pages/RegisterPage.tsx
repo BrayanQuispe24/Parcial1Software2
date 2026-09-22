@@ -65,10 +65,10 @@ export const RegisterPage: React.FC = () => {
       <div className="bg-white w-full max-w-lg rounded-2xl p-5 sm:p-8 shadow-2xl border border-slate-700 space-y-6">
         <div className="text-center space-y-2">
           <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-700 rounded-lg flex items-center justify-center font-extrabold text-sm text-white mx-auto shadow-md">
-            AI
+            GV
           </div>
           <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">Registro de Pentester</h2>
-          <p className="text-slate-500 text-xs">Crea tu cuenta de evaluador en GenAI Security Lab (Sujeta a Activación por el Administrador del Sistema)</p>
+          <p className="text-slate-500 text-xs">Crea tu cuenta de evaluador en GenVuln AI (Sujeta a Activación por el Administrador del Sistema)</p>
         </div>
 
         {error && (

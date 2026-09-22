@@ -174,6 +174,23 @@ export const aiService = {
     const response = await api.get(`/pruebas/ia/escaneos/${scanId}/`);
     return response.data;
   },
+
+  // Registra dinámicamente una nueva URL o Host en la lista de autorizaciones del motor de IA
+  agregarUrlAutorizada: async (url: string, descripcion?: string) => {
+    const response = await api.post('/urls-autorizadas/', {
+      url: url,
+      descripcion: descripcion || 'Registrado automáticamente desde el módulo de Software Autorizado',
+      activa: true,
+    });
+    return response.data;
+  },
+
+  // Obtener la lista consolidada de URLs y hosts permitidos actualmente (.env + BD)
+  obtenerUrlsEfectivas: async () => {
+    const response = await api.get('/urls-autorizadas/efectivas/');
+    return response.data;
+  },
 };
+
 
 
