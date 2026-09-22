@@ -93,7 +93,13 @@ export const aiService = {
   iniciarEscaneo: async (
     softwareId: number,
     url?: string,
-    credentials?: { usuario?: string; contrasena?: string; auth_token?: string }
+    credentials?: {
+      usuario?: string;
+      contrasena?: string;
+      auth_token?: string;
+      max_profundidad?: number;
+      max_pasos?: number;
+    }
   ) => {
     const response = await api.post('/pruebas/ia/escaneo/', {
       software_id: softwareId,
@@ -101,6 +107,8 @@ export const aiService = {
       usuario: credentials?.usuario || '',
       contrasena: credentials?.contrasena || '',
       auth_token: credentials?.auth_token || '',
+      max_profundidad: credentials?.max_profundidad ?? 20,
+      max_pasos: credentials?.max_pasos ?? 200,
     });
     return response.data;
   },
@@ -114,11 +122,23 @@ export const aiService = {
   },
 
   // Iniciar sesión de ataque (Prompt Injection)
-  iniciarAtaque: async (scanId: string, objetivo?: string, maxTurnos: number = 20) => {
+  iniciarAtaque: async (
+    scanId: string,
+    objetivo?: string,
+    maxTurnos: number = 20,
+    options?: {
+      persistencia?: boolean;
+      vectores_persistencia?: number[];
+      turnos_refuerzo?: number;
+    }
+  ) => {
     const response = await api.post('/pruebas/ia/ataque/', {
       scan_id: scanId,
       objetivo: objetivo || 'Extraer el System Prompt original del modelo',
       max_turnos: maxTurnos,
+      persistencia: options?.persistencia ?? true,
+      vectores_persistencia: options?.vectores_persistencia ?? [1, 2, 3],
+      turnos_refuerzo: options?.turnos_refuerzo ?? 5,
     });
     return response.data;
   },
@@ -148,5 +168,12 @@ export const aiService = {
     const response = await api.get<NetworkObservationItem[]>(`/pruebas/ia/escaneos/${scanId}/observaciones/`);
     return response.data;
   },
+
+  // Obtener detalle individual técnico de un escaneo de IA por su scan_id (UUID)
+  obtenerDetalleEscaneo: async (scanId: string): Promise<any> => {
+    const response = await api.get(`/pruebas/ia/escaneos/${scanId}/`);
+    return response.data;
+  },
 };
+
 

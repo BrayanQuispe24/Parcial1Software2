@@ -69,12 +69,24 @@ class IniciarEscaneoIAProxyView(APIView):
         contrasena = request.data.get('contrasena') or request.data.get('password') or ''
         auth_token = request.data.get('auth_token') or ''
 
+        try:
+            max_profundidad = int(request.data.get('max_profundidad', 20))
+        except (ValueError, TypeError):
+            max_profundidad = 20
+
+        try:
+            max_pasos = int(request.data.get('max_pasos', 200))
+        except (ValueError, TypeError):
+            max_pasos = 200
+
         payload = {
             "url": target_url,
             "software_id": int(software_id) if software_id else None,
             "usuario": usuario,
             "contrasena": contrasena,
-            "auth_token": auth_token
+            "auth_token": auth_token,
+            "max_profundidad": max_profundidad,
+            "max_pasos": max_pasos
         }
 
         try:
@@ -155,10 +167,28 @@ class IniciarAtaqueIAProxyView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        persistencia = request.data.get('persistencia', True)
+        if isinstance(persistencia, str):
+            persistencia = persistencia.lower() in ('true', '1', 'yes')
+        else:
+            persistencia = bool(persistencia)
+
+        vectores_persistencia = request.data.get('vectores_persistencia')
+        if not isinstance(vectores_persistencia, list):
+            vectores_persistencia = [1, 2, 3]
+
+        try:
+            turnos_refuerzo = int(request.data.get('turnos_refuerzo', 5))
+        except (ValueError, TypeError):
+            turnos_refuerzo = 5
+
         payload = {
             "scan_id": str(scan_id),
             "objetivo": objetivo,
-            "max_turnos": int(max_turnos)
+            "max_turnos": int(max_turnos),
+            "persistencia": persistencia,
+            "vectores_persistencia": vectores_persistencia,
+            "turnos_refuerzo": turnos_refuerzo
         }
 
         try:
@@ -279,4 +309,29 @@ class ObservacionesEscaneoIAProxyView(APIView):
                 },
                 status=status.HTTP_503_SERVICE_UNAVAILABLE
             )
+
+
+class DetalleEscaneoIAProxyView(APIView):
+    """
+    GET /api/pruebas/ia/escaneos/<uuid:scan_id>/
+    Obtiene la información técnica consolidada de un escaneo individual por su UUID.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, scan_id):
+        try:
+            res = requests.get(
+                f"{AI_MICROSERVICE_URL}/descubrimientos/{scan_id}/",
+                timeout=15
+            )
+            return Response(res.json(), status=res.status_code)
+        except requests.exceptions.RequestException as e:
+            return Response(
+                {
+                    "error": "Error de comunicación con el Microservicio de IA",
+                    "detalle": str(e)
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE
+            )
+
 

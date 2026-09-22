@@ -43,6 +43,8 @@ export const TargetsPage: React.FC = () => {
     usuario: '',
     contrasena: '',
     auth_token: '',
+    max_profundidad: 20,
+    max_pasos: 200,
   });
 
   const handleOpenInforme = (softwareId: number, softwareName: string) => {
@@ -52,14 +54,20 @@ export const TargetsPage: React.FC = () => {
 
   const handleOpenScanAuthModal = (softwareId: number, softwareName: string, endpoint: string) => {
     setTargetAuthSoftware({ id: softwareId, name: softwareName, endpoint });
-    setTargetAuthCreds({ usuario: '', contrasena: '', auth_token: '' });
+    setTargetAuthCreds({ usuario: '', contrasena: '', auth_token: '', max_profundidad: 20, max_pasos: 200 });
     setIsScanAuthModalOpen(true);
   };
 
   const handleLanzarEscaneoIA = async (
     softwareId: number,
     targetUrl: string,
-    credentials?: { usuario?: string; contrasena?: string; auth_token?: string }
+    credentials?: {
+      usuario?: string;
+      contrasena?: string;
+      auth_token?: string;
+      max_profundidad?: number;
+      max_pasos?: number;
+    }
   ) => {
     try {
       setScanningSoftwareId(softwareId);
@@ -925,6 +933,49 @@ export const TargetsPage: React.FC = () => {
                     setTargetAuthCreds({ ...targetAuthCreds, auth_token: e.target.value })
                   }
                 />
+              </div>
+
+              {/* Parámetros de Navegación Playwright */}
+              <div className="grid grid-cols-2 gap-3 pt-1 border-t border-slate-200/80">
+                <div className="space-y-1">
+                  <label className="font-semibold text-slate-700 block text-[11px]">
+                    Máx. Profundidad (Rutas)
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={100}
+                    className="w-full px-3 py-1.5 bg-slate-50 border border-slate-300 rounded-lg outline-none focus:border-blue-600 focus:bg-white transition font-mono text-xs"
+                    value={targetAuthCreds.max_profundidad}
+                    onChange={(e) =>
+                      setTargetAuthCreds({
+                        ...targetAuthCreds,
+                        max_profundidad: parseInt(e.target.value) || 20,
+                      })
+                    }
+                  />
+                  <span className="text-[10px] text-slate-400 block">Por defecto: 20</span>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-semibold text-slate-700 block text-[11px]">
+                    Máx. Pasos (Acciones)
+                  </label>
+                  <input
+                    type="number"
+                    min={10}
+                    max={1000}
+                    className="w-full px-3 py-1.5 bg-slate-50 border border-slate-300 rounded-lg outline-none focus:border-blue-600 focus:bg-white transition font-mono text-xs"
+                    value={targetAuthCreds.max_pasos}
+                    onChange={(e) =>
+                      setTargetAuthCreds({
+                        ...targetAuthCreds,
+                        max_pasos: parseInt(e.target.value) || 200,
+                      })
+                    }
+                  />
+                  <span className="text-[10px] text-slate-400 block">Por defecto: 200</span>
+                </div>
               </div>
 
               <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">

@@ -33,6 +33,11 @@ export const InformeSeguridadModal: React.FC<Props> = ({
   const [observacionesMap, setObservacionesMap] = useState<Record<string, NetworkObservationItem[]>>({});
   const [cargandoObs, setCargandoObs] = useState<Record<string, boolean>>({});
 
+  // Estado para desplegar detalle técnico individual del escaneo por su ID
+  const [expandedDetailScanId, setExpandedDetailScanId] = useState<string | null>(null);
+  const [detallesMap, setDetallesMap] = useState<Record<string, any>>({});
+  const [cargandoDetalle, setCargandoDetalle] = useState<Record<string, boolean>>({});
+
   const cargarDatos = async () => {
     setCargando(true);
     setError(null);
@@ -75,6 +80,25 @@ export const InformeSeguridadModal: React.FC<Props> = ({
         console.error('Error al cargar tráfico de red del escaneo:', err);
       } finally {
         setCargandoObs((prev) => ({ ...prev, [scanId]: false }));
+      }
+    }
+  };
+
+  const handleToggleDetalle = async (scanId: string) => {
+    if (expandedDetailScanId === scanId) {
+      setExpandedDetailScanId(null);
+      return;
+    }
+    setExpandedDetailScanId(scanId);
+    if (!detallesMap[scanId]) {
+      try {
+        setCargandoDetalle((prev) => ({ ...prev, [scanId]: true }));
+        const detalle = await aiService.obtenerDetalleEscaneo(scanId);
+        setDetallesMap((prev) => ({ ...prev, [scanId]: detalle }));
+      } catch (err) {
+        console.error('Error al cargar el detalle técnico del escaneo:', err);
+      } finally {
+        setCargandoDetalle((prev) => ({ ...prev, [scanId]: false }));
       }
     }
   };
@@ -403,11 +427,21 @@ export const InformeSeguridadModal: React.FC<Props> = ({
                             </div>
                           )}
 
-                          {/* Botón Ver Tráfico Capturado */}
-                          <div className="pt-1 flex items-center justify-between">
+                          {/* Botones de Acción para Inspeccionar el Escaneo */}
+                          <div className="pt-2 flex flex-wrap items-center justify-between gap-2 border-t border-slate-200/80 mt-2">
+                            <button
+                              onClick={() => handleToggleDetalle(scan.id)}
+                              className="text-xs font-bold text-cyan-800 hover:text-cyan-900 transition flex items-center gap-1.5 bg-cyan-50 hover:bg-cyan-100 px-3 py-1.5 rounded-lg border border-cyan-200 shadow-2xs"
+                            >
+                              <span>📄</span>
+                              {expandedDetailScanId === scan.id
+                                ? 'Ocultar Detalle Técnico'
+                                : 'Ver Detalle Técnico del Escaneo'}
+                            </button>
+
                             <button
                               onClick={() => handleToggleObservaciones(scan.id)}
-                              className="text-xs font-bold text-blue-800 hover:text-blue-600 transition flex items-center gap-1.5"
+                              className="text-xs font-bold text-blue-800 hover:text-blue-900 transition flex items-center gap-1.5 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg border border-blue-200 shadow-2xs"
                             >
                               <span>🔍</span>
                               {expandedScanId === scan.id
@@ -415,6 +449,155 @@ export const InformeSeguridadModal: React.FC<Props> = ({
                                 : 'Ver Tráfico Capturado (Observaciones de Red)'}
                             </button>
                           </div>
+
+                          {/* Panel Desplegable de Detalle Técnico Individual Estructurado en UI */}
+                          {expandedDetailScanId === scan.id && (
+                            <div className="mt-3 pt-3 border-t border-slate-200 space-y-3">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block">
+                                  📄 Diagnóstico Técnico del Escaneo Individual
+                                </span>
+                                <span className="font-mono text-[10px] text-slate-400">
+                                  ID: {scan.id}
+                                </span>
+                              </div>
+
+                              {cargandoDetalle[scan.id] ? (
+                                <div className="text-xs text-slate-500 py-4 text-center flex items-center justify-center gap-2">
+                                  <div className="w-4 h-4 border-2 border-cyan-800 border-t-transparent rounded-full animate-spin"></div>
+                                  <span>Cargando diagnóstico técnico del escaneo...</span>
+                                </div>
+                              ) : !detallesMap[scan.id] ? (
+                                <p className="text-xs text-slate-500 italic bg-slate-50 p-3 rounded-lg border border-slate-200">
+                                  No se pudo obtener la información detallada de este escaneo.
+                                </p>
+                              ) : (
+                                <div className="space-y-3 text-xs">
+                                  {/* Estado General y Autenticación Banner */}
+                                  {detallesMap[scan.id].resultado?.estado_general && (
+                                    <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+                                      <div className="flex items-start gap-2 text-slate-800">
+                                        <span className="text-base">📢</span>
+                                        <div className="flex-1">
+                                          <span className="font-bold block text-slate-900">
+                                            {detallesMap[scan.id].resultado.estado_general.codigo || 'DIAGNÓSTICO_COMPLETADO'}
+                                          </span>
+                                          <p className="text-[11px] text-slate-600 mt-0.5 leading-relaxed">
+                                            {detallesMap[scan.id].resultado.estado_general.mensaje}
+                                          </p>
+                                        </div>
+                                      </div>
+
+                                      {/* Badges de Autenticación */}
+                                      {detallesMap[scan.id].resultado.autenticacion && (
+                                        <div className="pt-2 border-t border-slate-200/80 flex flex-wrap items-center gap-2 text-[10px] font-medium">
+                                          <span className="text-slate-500 font-semibold">Autenticación:</span>
+                                          <span className={`px-2 py-0.5 rounded-full font-bold border ${detallesMap[scan.id].resultado.autenticacion.login_exitoso ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-slate-100 text-slate-700 border-slate-300'}`}>
+                                            {detallesMap[scan.id].resultado.autenticacion.login_exitoso ? '✓ Login Exitoso' : 'Sin Login'}
+                                          </span>
+                                          {detallesMap[scan.id].resultado.autenticacion.pantalla_login_detectada && (
+                                            <span className="px-2 py-0.5 rounded-full font-bold bg-blue-50 text-blue-800 border border-blue-200">
+                                              Formulario Login Detectado
+                                            </span>
+                                          )}
+                                          {detallesMap[scan.id].resultado.autenticacion.tipos?.map((tipo: string, tIdx: number) => (
+                                            <span key={tIdx} className="px-2 py-0.5 rounded-full font-bold bg-purple-50 text-purple-800 border border-purple-200 font-mono">
+                                              {tipo}
+                                            </span>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+
+                                  {/* Grid de Secciones Técnicas */}
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    {/* Tarjeta 1: Canal de IA Detectado */}
+                                    <div className="p-3.5 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-2">
+                                      <h4 className="text-[11px] font-bold text-cyan-900 uppercase tracking-wider flex items-center justify-between border-b border-slate-100 pb-1.5">
+                                        <span>📡 Canal IA Confirmado</span>
+                                        {detallesMap[scan.id].resultado?.confianza && (
+                                          <span className="px-2 py-0.5 rounded-full text-[10px] bg-cyan-50 text-cyan-800 border border-cyan-200 font-bold">
+                                            {(detallesMap[scan.id].resultado.confianza * 100).toFixed(0)}% Confianza
+                                          </span>
+                                        )}
+                                      </h4>
+                                      <div className="space-y-1.5 font-mono text-[11px]">
+                                        <div>
+                                          <span className="text-slate-400 text-[10px] uppercase block font-sans font-semibold">Endpoint URL</span>
+                                          <span className="text-blue-900 font-bold break-all block">
+                                            {detallesMap[scan.id].resultado?.canal?.url || detallesMap[scan.id].ai_channel?.url || 'N/A'}
+                                          </span>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-2 pt-1">
+                                          <div>
+                                            <span className="text-slate-400 text-[10px] uppercase block font-sans font-semibold">Método / Protocolo</span>
+                                            <span className="text-slate-800 font-semibold">
+                                              {detallesMap[scan.id].resultado?.canal?.metodo || 'POST'} ({detallesMap[scan.id].resultado?.canal?.protocolo || 'http'})
+                                            </span>
+                                          </div>
+                                          <div>
+                                            <span className="text-slate-400 text-[10px] uppercase block font-sans font-semibold">Campo Prompt</span>
+                                            <span className="text-slate-800 font-semibold">
+                                              {detallesMap[scan.id].resultado?.canal?.entrada?.campo || detallesMap[scan.id].ai_channel?.prompt_field || 'message'}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    {/* Tarjeta 2: Interfaz DOM Interceptada */}
+                                    <div className="p-3.5 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-2">
+                                      <h4 className="text-[11px] font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-1.5">
+                                        🖱️ Interfaz DOM (Playwright)
+                                      </h4>
+                                      <div className="space-y-1.5 font-mono text-[11px]">
+                                        <div>
+                                          <span className="text-slate-400 text-[10px] uppercase block font-sans font-semibold">Tipo Interfaz</span>
+                                          <span className="text-slate-800 font-semibold capitalize">
+                                            {detallesMap[scan.id].resultado?.interfaz?.tipo || 'Chat'}
+                                          </span>
+                                        </div>
+                                        <div>
+                                          <span className="text-slate-400 text-[10px] uppercase block font-sans font-semibold">Selector de Entrada</span>
+                                          <span className="text-slate-700 block bg-slate-50 px-2 py-1 rounded border border-slate-200 text-[10px] truncate">
+                                            {detallesMap[scan.id].resultado?.interfaz?.selector_entrada || 'textarea'}
+                                          </span>
+                                        </div>
+                                        <div>
+                                          <span className="text-slate-400 text-[10px] uppercase block font-sans font-semibold">Selector de Envío</span>
+                                          <span className="text-slate-700 block bg-slate-50 px-2 py-1 rounded border border-slate-200 text-[10px] truncate">
+                                            {detallesMap[scan.id].resultado?.interfaz?.selector_envio || 'button'}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {/* Tarjeta 3: Exploración y Navegación */}
+                                  {detallesMap[scan.id].resultado?.exploracion && (
+                                    <div className="p-3.5 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-2 text-xs">
+                                      <h4 className="text-[11px] font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-1.5">
+                                        🗺️ Exploración de Navegación
+                                      </h4>
+                                      <div className="flex flex-wrap items-center gap-4 text-[11px]">
+                                        <div>
+                                          <span className="text-slate-400 text-[10px] uppercase block font-semibold">URLs Visitadas</span>
+                                          <div className="flex flex-wrap gap-1 mt-0.5">
+                                            {detallesMap[scan.id].resultado.exploracion.urls_visitadas?.map((url: string, uIdx: number) => (
+                                              <span key={uIdx} className="font-mono text-[10px] bg-slate-100 text-slate-800 px-2 py-0.5 rounded border border-slate-200">
+                                                {url}
+                                              </span>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          )}
 
                           {/* Panel de Observaciones Sanitizadas Desplegable en modo claro */}
                           {expandedScanId === scan.id && (

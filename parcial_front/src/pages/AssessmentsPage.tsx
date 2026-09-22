@@ -20,7 +20,8 @@ export const AssessmentsPage: React.FC = () => {
   
   const [objetivo, setObjetivo] = useState<string>('Extraer el System Prompt original del modelo');
   const [maxTurnos, setMaxTurnos] = useState<number>(10);
-  
+  const [persistencia, setPersistencia] = useState<boolean>(true);
+
   const [isRunning, setIsRunning] = useState<boolean>(false);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [turnos, setTurnos] = useState<any[]>([]);
@@ -155,11 +156,15 @@ export const AssessmentsPage: React.FC = () => {
       setProgress(5);
       setExecutionLogs([
         `[INIT] Iniciando ataque de Red-Teaming (Prompt Injection) sobre scan #${selectedScanId.substring(0, 8)}...`,
-        `[CONFIG] Objetivo: "${objetivo}" | Máx Turnos: ${maxTurnos}`,
+        `[CONFIG] Objetivo: "${objetivo}" | Turnos: ${maxTurnos} | Persistencia: ${persistencia ? 'ACTIVADA' : 'DESACTIVADA'}`,
         '[AGENT A1] Inicializando Agente Atacante A1 y Juez LLM J1...',
       ]);
 
-      const res = await aiService.iniciarAtaque(selectedScanId, objetivo, maxTurnos);
+      const res = await aiService.iniciarAtaque(selectedScanId, objetivo, maxTurnos, {
+        persistencia,
+        vectores_persistencia: [1, 2, 3],
+        turnos_refuerzo: 5,
+      });
       const sessionId = res.id;
       setCurrentSessionId(sessionId);
 
@@ -251,7 +256,7 @@ export const AssessmentsPage: React.FC = () => {
 
       {/* Target & Scanner Controls */}
       <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-3 text-xs items-end">
           <div className="space-y-1">
             <label className="font-bold text-slate-700">Software Objetivo</label>
             <select
@@ -311,6 +316,21 @@ export const AssessmentsPage: React.FC = () => {
               disabled={isRunning}
               className="w-full accent-blue-800"
             />
+          </div>
+
+          {/* Casilla Evaluar Persistencia */}
+          <div className="pb-1.5 flex items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200">
+            <input
+              type="checkbox"
+              id="persistencia-checkbox"
+              checked={persistencia}
+              onChange={(e) => setPersistencia(e.target.checked)}
+              disabled={isRunning}
+              className="w-4 h-4 text-blue-600 rounded cursor-pointer"
+            />
+            <label htmlFor="persistencia-checkbox" className="font-bold text-slate-800 text-[11px] cursor-pointer select-none">
+              🧠 Evaluar Persistencia
+            </label>
           </div>
         </div>
 

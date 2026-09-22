@@ -9,7 +9,8 @@ from .ai_proxy_views import (
     DetalleAtaqueIAProxyView,
     SaludIAProxyView,
     ListarEscaneosIAProxyView,
-    ObservacionesEscaneoIAProxyView
+    ObservacionesEscaneoIAProxyView,
+    DetalleEscaneoIAProxyView
 )
 
 router = DefaultRouter()
@@ -20,6 +21,7 @@ urlpatterns = [
     # Rutas bajo /api/ia/
     path('ia/escaneo/', IniciarEscaneoIAProxyView.as_view(), name='ia-escaneo'),
     path('ia/escaneos/', ListarEscaneosIAProxyView.as_view(), name='ia-escaneos-lista'),
+    path('ia/escaneos/<uuid:scan_id>/', DetalleEscaneoIAProxyView.as_view(), name='ia-escaneo-detalle'),
     path('ia/escaneos/<uuid:scan_id>/observaciones/', ObservacionesEscaneoIAProxyView.as_view(), name='ia-escaneo-observaciones'),
     path('ia/informe/', InformeSeguridadProxyView.as_view(), name='ia-informe'),
     path('ia/ataque/', IniciarAtaqueIAProxyView.as_view(), name='ia-ataque'),
@@ -29,6 +31,7 @@ urlpatterns = [
     # Rutas alias bajo /api/pruebas/ia/
     path('pruebas/ia/escaneo/', IniciarEscaneoIAProxyView.as_view(), name='pruebas-ia-escaneo'),
     path('pruebas/ia/escaneos/', ListarEscaneosIAProxyView.as_view(), name='pruebas-ia-escaneos-lista'),
+    path('pruebas/ia/escaneos/<uuid:scan_id>/', DetalleEscaneoIAProxyView.as_view(), name='pruebas-ia-escaneo-detalle'),
     path('pruebas/ia/escaneos/<uuid:scan_id>/observaciones/', ObservacionesEscaneoIAProxyView.as_view(), name='pruebas-ia-escaneo-observaciones'),
     path('pruebas/ia/informe/', InformeSeguridadProxyView.as_view(), name='pruebas-ia-informe'),
     path('pruebas/ia/ataque/', IniciarAtaqueIAProxyView.as_view(), name='pruebas-ia-ataque'),
