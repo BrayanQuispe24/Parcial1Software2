@@ -90,7 +90,7 @@ export const TargetsPage: React.FC = () => {
       }
 
       if (!msg) {
-        msg = 'No se pudo iniciar el escaneo de IA. Verifique que el microservicio de IA (backend_genvulnai) esté ejecutándose en el puerto 8001.';
+        msg = 'No se pudo iniciar el escaneo de IA. Verifique la conexión con el microservicio de IA (http://3.138.107.213:8001).';
       }
       alert(`⚠️ ${msg}`);
     } finally {

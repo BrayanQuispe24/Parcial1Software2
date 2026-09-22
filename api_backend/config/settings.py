@@ -209,7 +209,7 @@ STRIPE_PUBLISHABLE_KEY = os.getenv('STRIPE_PUBLISHABLE_KEY', 'pk_test_51MockKeyF
 STRIPE_SECRET_KEY = os.getenv('STRIPE_SECRET_KEY', 'sk_test_51MockKeyForStripeDevTesting1234567890')
 
 # Microservicio de IA Configuration
-AI_MICROSERVICE_URL = os.getenv('AI_MICROSERVICE_URL', 'http://127.0.0.1:8001/api')
+AI_MICROSERVICE_URL = os.getenv('AI_MICROSERVICE_URL', 'http://3.138.107.213:8001/api')
 
 
 

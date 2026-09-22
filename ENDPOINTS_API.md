@@ -6,7 +6,7 @@ Este documento detalla la especificación técnica completa de todos los endpoin
 
 ## 📌 Configuración General
 
-- **Base URL por defecto:** `http://localhost:8001/api/` (o `http://localhost:8000/api/`)
+- **Base URL Servidor Remoto de IA:** `http://3.138.107.213:8001/api/` (Proxy local en Backend Principal: `http://localhost:8000/api/`)
 - **Formato de datos:** `application/json`
 - **Integración por Microservicios:** Soporta referencia por `software_id` (ID del microservicio de Pruebas).
 
