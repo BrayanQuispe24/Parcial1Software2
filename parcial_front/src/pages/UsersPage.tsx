@@ -5,6 +5,7 @@ import { UserTable } from '../features/users/components/UserTable';
 import { UserCardGrid } from '../features/users/components/UserCardGrid';
 import { UserFormModal } from '../features/users/components/UserFormModal';
 import { ConfirmEnableModal } from '../features/users/components/ConfirmEnableModal';
+import { ConfirmDeleteModal } from '../features/users/components/ConfirmDeleteModal';
 
 export const UsersPage: React.FC = () => {
   const { user: currentUser } = useAuth();
@@ -21,6 +22,11 @@ export const UsersPage: React.FC = () => {
   const [isEnableModalOpen, setIsEnableModalOpen] = useState<boolean>(false);
   const [enablingSubmitting, setEnablingSubmitting] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Estados para Modal de Confirmación de Eliminación
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState<boolean>(false);
+  const [deleteSubmitting, setDeleteSubmitting] = useState<boolean>(false);
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -90,15 +96,36 @@ export const UsersPage: React.FC = () => {
   };
 
 
-  const handleDeleteUser = async (userId: number) => {
-    if (window.confirm(`¿Estás seguro de que deseas eliminar al usuario #${userId}?`)) {
-      try {
-        await api.delete(`/users/${userId}/`);
-        fetchUsers();
-      } catch (err) {
-        console.error('Error al eliminar usuario:', err);
-        setUsers((prev) => (Array.isArray(prev) ? prev.filter((u) => u.id !== userId) : []));
-      }
+  const handleDeleteUser = (userId: number) => {
+    const targetUser = users.find((u) => u.id === userId);
+    if (targetUser) {
+      setUserToDelete(targetUser);
+      setIsDeleteModalOpen(true);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!userToDelete) return;
+    try {
+      setDeleteSubmitting(true);
+      await api.delete(`/users/${userToDelete.id}/`);
+      setToastMessage({
+        type: 'success',
+        text: `✓ Usuario #${userToDelete.id} (${userToDelete.username}) eliminado exitosamente.`,
+      });
+      fetchUsers();
+    } catch (err: any) {
+      console.error('Error al eliminar usuario:', err);
+      const msg = err.response?.data?.detail || err.response?.data?.error || 'Ocurrió un error al eliminar la cuenta.';
+      setToastMessage({
+        type: 'error',
+        text: `⚠️ ${msg}`,
+      });
+    } finally {
+      setDeleteSubmitting(false);
+      setIsDeleteModalOpen(false);
+      setUserToDelete(null);
+      setTimeout(() => setToastMessage(null), 6000);
     }
   };
 
@@ -288,6 +315,18 @@ export const UsersPage: React.FC = () => {
         onConfirm={handleConfirmEnable}
         user={userToEnable}
         submitting={enablingSubmitting}
+      />
+
+      {/* Modal de Confirmación de Eliminación */}
+      <ConfirmDeleteModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => {
+          setIsDeleteModalOpen(false);
+          setUserToDelete(null);
+        }}
+        onConfirm={handleConfirmDelete}
+        user={userToDelete}
+        submitting={deleteSubmitting}
       />
     </div>
   );

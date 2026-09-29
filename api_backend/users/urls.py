@@ -6,6 +6,7 @@ from .views import (
     LogoutView,
     UserProfileView,
     UserListView,
+    UserDetailView,
     UserStatsView,
     EnableUserView,
     CreateAuditorView
@@ -21,6 +22,7 @@ urlpatterns = [
 
     # Gestión de Usuarios y Estadísticas
     path('users/', UserListView.as_view(), name='user_list'),
+    path('users/<int:pk>/', UserDetailView.as_view(), name='user_detail'),
     path('users/stats/', UserStatsView.as_view(), name='user_stats'),
     path('users/<int:pk>/enable/', EnableUserView.as_view(), name='user_enable'),
     path('users/auditors/', CreateAuditorView.as_view(), name='auditor_create'),

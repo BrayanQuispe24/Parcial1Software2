@@ -267,6 +267,23 @@ class UserListView(generics.ListAPIView):
         return User.objects.filter(id=user.id)
 
 
+class UserDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """Endpoint para ver, editar o eliminar un usuario específico."""
+    permission_classes = [IsAuthenticated]
+    serializer_class = UserSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        # System Admin puede ver/editar/borrar a todos
+        if user.role == Role.SYSTEM_ADMIN or user.is_superuser:
+            return User.objects.all()
+        # Pentester solo a los que él mismo creó
+        elif user.role == Role.PENTESTER:
+            return User.objects.filter(created_by=user)
+        # Auditor u otros roles solo a sí mismos
+        return User.objects.filter(id=user.id)
+
+
 class UserStatsView(APIView):
     """Endpoint exclusivo para el Administrador del Sistema con métricas cuantitativas de usuarios."""
     permission_classes = [IsSystemAdmin]
