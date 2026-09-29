@@ -108,11 +108,7 @@ export const UsersPage: React.FC = () => {
         await api.put(`/users/${editingUser.id}/`, formData);
       } catch (err) {
         console.error('Error al actualizar en backend:', err);
-        setUsers((prev) =>
-          Array.isArray(prev)
-            ? prev.map((u) => (u.id === editingUser.id ? { ...u, ...formData } : u))
-            : []
-        );
+        throw err;
       }
     } else {
       try {
@@ -123,11 +119,7 @@ export const UsersPage: React.FC = () => {
         }
       } catch (err) {
         console.error('Error al crear en backend:', err);
-        const newUser: User = {
-          id: Date.now(),
-          ...formData,
-        };
-        setUsers((prev) => (Array.isArray(prev) ? [...prev, newUser] : [newUser]));
+        throw err;
       }
     }
     fetchUsers();

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { softwareService, type Software } from '../services/softwareService';
 import { aiService, type DiscoveryScanItem } from '../services/aiService';
@@ -13,6 +14,14 @@ interface ModuleConfig {
 }
 
 export const AssessmentsPage: React.FC = () => {
+  const { user } = useAuth();
+  const isAuditor = user?.role === 'AUDITOR';
+
+  // Si es Auditor, redirigir inmediatamente
+  if (isAuditor) {
+    return <Navigate to="/app/dashboard" replace />;
+  }
+
   const [softwares, setSoftwares] = useState<Software[]>([]);
   const [selectedSoftwareId, setSelectedSoftwareId] = useState<number | null>(null);
   const [scans, setScans] = useState<DiscoveryScanItem[]>([]);
@@ -239,9 +248,6 @@ export const AssessmentsPage: React.FC = () => {
       modules.map((m) => (m.id === id ? { ...m, enabled: !m.enabled } : m))
     );
   };
-
-  const { user } = useAuth();
-  const isAuditor = user?.role === 'AUDITOR';
 
   const handleStartAttack = async () => {
     if (isAuditor) {

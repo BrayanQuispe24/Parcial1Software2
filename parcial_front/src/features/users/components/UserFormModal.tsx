@@ -66,7 +66,26 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({
       onClose();
     } catch (err: any) {
       console.error(err);
-      setError(err.response?.data?.detail || 'Ocurrió un error al guardar los datos del usuario.');
+      if (err.response?.data) {
+        if (err.response.data.detail) {
+          setError(err.response.data.detail);
+        } else if (typeof err.response.data === 'object') {
+          // Extraer los errores de validación de DRF
+          const errorMessages = Object.entries(err.response.data)
+            .map(([field, messages]) => {
+              const fieldName = field === 'username' ? 'Usuario' :
+                                field === 'password' ? 'Contraseña' :
+                                field === 'email' ? 'Correo' : field;
+              return `${fieldName}: ${Array.isArray(messages) ? messages.join(' ') : messages}`;
+            })
+            .join(' | ');
+          setError(errorMessages || 'Ocurrió un error de validación.');
+        } else {
+          setError('Ocurrió un error al guardar los datos del usuario.');
+        }
+      } else {
+        setError('Error de conexión con el servidor.');
+      }
     } finally {
       setLoading(false);
     }
